@@ -1,0 +1,58 @@
+# deepamp-audio Cordis bundle patch — the DURABLE (P1) dual-face shape.
+#
+# This is the production copy made 2026-11-03 from audio-play-cordis. It is the mounted bundle since
+# 2026-11-05, when the profile link was switched here and the predecessor package under the same scope was removed from the
+# profile. The older tree stays on disk, unmounted, and is the rollback path.
+#
+# This file is loaded as a composition layer because package.json declares
+#   "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }. It mounts
+#   BOTH halves under ONE package name (@<scope>/deepamp-audio), which is what makes the
+#   bundle dual-face (and a third row, the tool component, mounted from the SAME package through its
+#   ./tools subpath — see the row itself):
+#     - Host row   -> lib/index.js   (real P1 host: TTS/STT dispatch, webServer audio
+#                                     routes, playlist, JSON RPC).
+#     - Client row -> lib/client.js  (dsh.client ./client; shell.overlay AudioPlayerPanel).
+#
+# The two rows share the single package name; each resolves via the package's "." (host)
+# and "./client" (browser) exports. Name is standardized on @<scope>/deepamp-audio
+# (ASCII hyphen) everywhere — self-name, profile dependency when it is switched, these rows, the
+# client ModuleLoader id, and the on-disk directory all agree. Do not reintroduce a different
+# spelling; the mismatch is what previously broke the profile mount.
+#
+# The row ids carry the new name for the same reason: if the old tree and this one were ever mounted
+# together (which is what a rollback of the switch looks like for one restart), two rows with the same
+# id do not sit side by side — the later one replaces the earlier row's config wholesale. Distinct ids
+# make that state visible instead of silently half-applied.
+#
+# NOTE: the web profile's own cordis.patch.yml no longer wires a client row — the package
+# bundle patch owns both halves here.
+
+- insert:
+    # Host half only. lib/index.js (webServer routes) loads via the package's "."
+    # export and parks via inject:['webServer',...] until host services are live.
+    # The client half (lib/client.js, dsh.client ./client) loads through the
+    # dsh-client-modules browser scan of THIS entry — a separate mechanism — so no
+    # client row belongs here. A second same-name row would load lib/index.js twice
+    # and throw on duplicate webServer route registration (two ids => two host entries).
+    - id: deepamp-host
+      name: '@mepaw/deepamp-audio'
+
+    # T-715: the DEEPAMP tools are a SEPARATE component row, not more code inside the host row and
+    # not Config fields on it. Composition is what decides who has the tools — the same way the
+    # harness's own Agent Teams bundle does, where `tool-agent-team` is its own row beside
+    # `agent-team`. An operator who wants the lane in front of the agent mounts this row; an
+    # operator who does not, leaves it out, and the panel and every verb still work unchanged.
+    # It is a package SUBPATH (`./tools`), so it is a second host entry with its own name and its
+    # own id: a subpath row never reads a package.json, which is why tools/locale/en.json carries
+    # its title and description and package.json exports ./tools/icon.
+    # The per-tool choice lives in THIS row's own Config (render / status / voices / control /
+    # scene_guard), and that is what the Bundle page shows as the tool selection. Nothing is
+    # declared below on purpose: four fields default to true, and scene_guard defaults to FALSE since T-903
+    # (2026-11-20), so the shipped shape is the whole tool set without an ask in front of a scene render.
+    # An operator who wants a smaller set writes `config: { control: false }` here — a config block
+    # replaces the row config wholesale, it is not deep-merged, and the fields it does not name keep
+    # their defaults. An operator who wants the scene ask back writes `config: { scene_guard: true }`.
+    # It waits on `audioPlay`, the service the host row provides, so it registers nothing until that
+    # row is live and parks quietly when it is not.
+    - id: tool-deepamp-audio
+      name: '@mepaw/deepamp-audio/tools'

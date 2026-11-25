@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DEEPAMP audio tools",
+    "description": "Puts the DEEPAMP audio lane in front of the agent as four tools: render a take, a scene or a transcription; read what the lane is doing; work with the voice registry; and ask the browser panel to play, stop, or clear. Every call goes through the same verbs the panel uses. Each tool can be turned off on its own."
+  }
+}

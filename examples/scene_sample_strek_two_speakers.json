@@ -1,0 +1,60 @@
+{
+  "scene_config": {
+    "title": "sample — two voices in a shuttle (JANEWAY voy_janeway + DOCTOR voy_doctor)",
+    "max_speakers": 2,
+    "voices": [
+      {
+        "name": "voy_janeway",
+        "character": "JANEWAY"
+      },
+      {
+        "name": "voy_doctor",
+        "character": "DOCTOR"
+      }
+    ],
+    "default_format": "wav",
+    "notes": "This file is a SAMPLE, not a job, and it is not a test fixture — no suite reads it. It is one short exchange from a real multi-voice scene this lane has already rendered, kept to eight lines so it can be read in one screen and dispatched in one part. Its dialogue text and its two voice names are the ones the scene was run with, so the shape is the shape the lane accepts. Two things a caller must read before dispatching anything, and this file deliberately carries neither: the voice names must exist in this plugin's registry (GET voice_registry, or audio_voices {what:'list'}), and the model is whatever the slot you dispatch to actually lists (POST endpoint_models {fn, id}) — no model is named here, on purpose. The shape is the one normalizeBatchDoc accepts: scene_config plus a dialogue array where every line names its speaker in 'name' (or 'voice'). A [S1]-style marker at the front of a line is a leftover and is taken out; the lane writes the engine's own markers from the part-local cast. The other accepted shape is batch_config plus an items array. scene_config.max_speakers is honoured; the keys a file may decide for itself are max_speakers, language and instructions, and everything else in scene_config — including this note — is description, not something to execute."
+  },
+  "dialogue": [
+    {
+      "name": "voy_janeway",
+      "character": "JANEWAY",
+      "text": "Captain's Log. Kathryn Janeway, designated commanding officer of the Intrepid-class Voyager, eleventh day of integration trials, survey grid Shear Nine. I have a shuttle, a fourteen-item checklist, and a hologram listed on my stores manifest as an item, and I have not yet given an order that anyone had to follow."
+    },
+    {
+      "name": "voy_doctor",
+      "character": "DOCTOR",
+      "text": "Emergency Medical Hologram, Mark One. State the nature of your medical emergency. I say that to a room with nobody in it, Captain, and I have said it eleven times in nine days, and this is the first flight where there was somebody in the room who didn't answer it."
+    },
+    {
+      "name": "voy_janeway",
+      "character": "JANEWAY",
+      "text": "Emergency Medical Hologram, Mark One. State the nature of your medical emergency. -- That's what you say when nobody talks to you, isn't it. I've been sitting here two hours and you haven't said it once."
+    },
+    {
+      "name": "voy_doctor",
+      "character": "DOCTOR",
+      "text": "It's in my opening program. It comes out when the room doesn't have a patient in it, and this room has never had one. You're the commanding officer of a ship I haven't seen, in a shuttle I wasn't designed for."
+    },
+    {
+      "name": "voy_janeway",
+      "character": "JANEWAY",
+      "text": "I'm the designated commanding officer of a ship that hasn't been commissioned yet, and you're item nine on a fourteen-item checklist. Say it again if it helps you."
+    },
+    {
+      "name": "voy_doctor",
+      "character": "DOCTOR",
+      "text": "I've been reading the stores manifest while you were flying. One emergency medical hologram, Mark One. Class three medical stores. I've read it four times because I thought the class meant a rank."
+    },
+    {
+      "name": "voy_janeway",
+      "character": "JANEWAY",
+      "text": "It means a shelf. Class three is a shelf you can requisition without a signature, and I can't change a manifest from a shuttle, and I'm not going to tell you it's a typing error."
+    },
+    {
+      "name": "voy_doctor",
+      "character": "DOCTOR",
+      "text": "I'd like it changed. Not corrected. Changed. I'd like to know which document I'd have to be moved out of to stop being a shelf item."
+    }
+  ]
+}

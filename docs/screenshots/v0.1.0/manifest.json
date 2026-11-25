@@ -1,0 +1,188 @@
+{
+ "version": "0.1.0",
+ "shots": [
+  {
+   "from": "section__playlist.png",
+   "file": "docs/screenshots/v0.1.0/playlist__open__968x1836.png",
+   "px": [
+    968,
+    1836
+   ],
+   "bytes": 228935,
+   "sha12": "4fc96c49326e"
+  },
+  {
+   "from": "section__models.png",
+   "file": "docs/screenshots/v0.1.0/models__open__968x2584.png",
+   "px": [
+    968,
+    2584
+   ],
+   "bytes": 407957,
+   "sha12": "a64b22f209ac"
+  },
+  {
+   "from": "section__voices.png",
+   "file": "docs/screenshots/v0.1.0/voices__voices_registered__968x3906.png",
+   "px": [
+    968,
+    3906
+   ],
+   "bytes": 650093,
+   "sha12": "48913a207c03"
+  },
+  {
+   "from": "section__tts_music_sfx.png",
+   "file": "docs/screenshots/v0.1.0/tts_music_sfx__open__968x1504.png",
+   "px": [
+    968,
+    1504
+   ],
+   "bytes": 141547,
+   "sha12": "09cfaf4ff1cf",
+   "superseded_by": {
+    "file": "docs/screenshots/v0.1.0/tts_music_sfx__open__968x1494__r2.png",
+    "sha12": "5e64e88e5a33",
+    "at": "2026-11-14",
+    "why": "re-shot on 2026-11-14 from the running build; the section guide text now points at that frame"
+   }
+  },
+  {
+   "from": "section__ttsd.png",
+   "file": "docs/screenshots/v0.1.0/ttsd__open__968x1720.png",
+   "px": [
+    968,
+    1720
+   ],
+   "bytes": 171557,
+   "sha12": "51d415d96186",
+   "superseded_by": {
+    "file": "docs/screenshots/v0.1.0/ttsd__open__968x1680__r2.png",
+    "sha12": "490ff969c5dc",
+    "at": "2026-11-14",
+    "why": "re-shot on 2026-11-14 from the running build; the section guide text now points at that frame"
+   }
+  },
+  {
+   "from": "section__stt.png",
+   "file": "docs/screenshots/v0.1.0/stt__open__968x1230.png",
+   "px": [
+    968,
+    1230
+   ],
+   "bytes": 103826,
+   "sha12": "843e4b185ee0"
+  },
+  {
+   "from": "section__autoplay.png",
+   "file": "docs/screenshots/v0.1.0/autoplay__open__968x1286.png",
+   "px": [
+    968,
+    1286
+   ],
+   "bytes": 104849,
+   "sha12": "94f66561d23d"
+  },
+  {
+   "from": "section__advanced.png",
+   "file": "docs/screenshots/v0.1.0/advanced__open__968x2214.png",
+   "px": [
+    968,
+    2214
+   ],
+   "bytes": 265340,
+   "sha12": "aaf363840a1a"
+  },
+  {
+   "from": "section__settings.png",
+   "file": "docs/screenshots/v0.1.0/settings__settings_open__968x3906.png",
+   "px": [
+    968,
+    3906
+   ],
+   "bytes": 509088,
+   "sha12": "1f6653c29c4b"
+  },
+  {
+   "from": "section__endpoints.png",
+   "file": "docs/screenshots/v0.1.0/endpoints__endpoints_loaded__968x2030.png",
+   "px": [
+    968,
+    2030
+   ],
+   "bytes": 321264,
+   "sha12": "93366fa90272"
+  },
+  {
+   "from": "section__logs.png",
+   "file": "docs/screenshots/v0.1.0/logs__logs_open__968x2756.png",
+   "px": [
+    968,
+    2756
+   ],
+   "bytes": 478375,
+   "sha12": "74a37590e960"
+  },
+  {
+   "from": "hero_play__w1600.png",
+   "file": "docs/screenshots/v0.1.0/hero__playing__968x1464.png",
+   "px": [
+    968,
+    1464
+   ],
+   "bytes": 166466,
+   "sha12": "6bec9232265c"
+  },
+  {
+   "from": "hero_play__w960.png",
+   "file": "docs/screenshots/v0.1.0/hero__playing__968x1464__r2.png",
+   "px": [
+    968,
+    1464
+   ],
+   "bytes": 166902,
+   "sha12": "c24e5f8f67a7"
+  },
+  {
+   "from": "hero_play__w480.png",
+   "file": "docs/screenshots/v0.1.0/hero__playing__904x1592.png",
+   "px": [
+    904,
+    1592
+   ],
+   "bytes": 172499,
+   "sha12": "43be3a728f7e"
+  },
+  {
+   "from": "scratch/shots_20261114/section__tts_music_sfx.png",
+   "file": "docs/screenshots/v0.1.0/tts_music_sfx__open__968x1494__r2.png",
+   "px": [
+    968,
+    1494
+   ],
+   "bytes": 134739,
+   "sha12": "5e64e88e5a33"
+  },
+  {
+   "from": "scratch/shots_20261114/section__ttsd.png",
+   "file": "docs/screenshots/v0.1.0/ttsd__open__968x1680__r2.png",
+   "px": [
+    968,
+    1680
+   ],
+   "bytes": 160350,
+   "sha12": "490ff969c5dc"
+  },
+  {
+   "from": "scratch/shots_20261114/editor__ttsd_batch.png",
+   "file": "docs/screenshots/v0.1.0/ttsd_editor__open__2688x2002.png",
+   "px": [
+    2688,
+    2002
+   ],
+   "bytes": 251494,
+   "sha12": "0563660bf407",
+   "note": "the multi-speaker dialogue edit window on its own, asked for by the operator 2026-11-14; example typed into the scene field, no batch saved, nothing dispatched"
+  }
+ ]
+}

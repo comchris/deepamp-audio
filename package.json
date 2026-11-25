@@ -1,0 +1,41 @@
+{
+  "name": "@mepaw/deepamp-audio",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "dsh": ">=0.2.2-rc.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.19.0"
+  },
+  "main": "lib/index.js",
+  "description": "deepamp-audio Cordis bundle — the browser audio panel, the host half that places audio jobs on an audio.cpp engine running multiple models on demand (local or remote, as the setup has it), and the agent-facing tools for it.",
+  "scripts": {
+    "test": "rc=0; for f in tests/*.test.cjs; do echo \"=== SUITE $f ===\"; node \"$f\" || rc=1; done; exit $rc"
+  },
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./tools": "./tools/index.js",
+    "./tools/locale/en.json": "./tools/locale/en.json",
+    "./icon": "./icon.svg",
+    "./tools/icon": "./icon.svg",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
