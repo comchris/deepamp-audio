@@ -1,27 +1,36 @@
 a [DSH-Plugin](https://github.com/deepseek-ai/deepseek-harness) as control for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines.
 **A WIP vibe-coding hobby project, shared with the other apes.** This is not a product page.
+This Third-party content is independently maintained and is NOT reviewed or endorsed by DeepSeek.
+Please verify its source and assess any risks before using it.
 
 ![The DEEPAMP player window with a take of a registered voice playing: the ticker names it, the visualizer is
 rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero__playing__968x1464.png)
 
-## 1. What it is
+## 1. Humanoid-UI-sections
 
-1. **One front-end, not the engine.** Nothing in this package is a speech engine. [audio.cpp](https://github.com/0xShug0/audio.cpp)
+0. Player-window — includes DOT-MATRIX-Display-technology and 24h-clock
+1. [Playlist](docs/DETAILS_PLAYLIST.md) — One line per job/file
+2. [Models](docs/DETAILS_MODELS.md) — Model database imported from audio.cpp
+3. [Voices](docs/DETAILS_VOICES.md) — Local voice sample generation and tracking
+4. [TTS / MUSIC / SFX](docs/DETAILS_TTS_MUSIC_SFX.md) — Manually trigger generation jobs
+5. [TTSD, multi-speaker batch](docs/DETAILS_TTSD.md) — Multi-speaker-batch-processing
+6. [STT, transcription](docs/DETAILS_STT.md) — Transcription and speaker ID extraction
+7. [Auto-play Agent Session](docs/DETAILS_AUTOPLAY.md) — Auto-play DSH agent session output
+8. [Advanced (Options, Remux)](docs/DETAILS_ADVANCED.md) — import of remote advanced model options.
+9. [Settings](docs/DETAILS_SETTINGS.md) — UI/UX tuning to Your liking.
+10. [Endpoints](docs/DETAILS_ENDPOINTS.md) — Engine catalog and health.
+11. [Logs](docs/DETAILS_LOGS.md) — Diagnosis, debug.
+
+1. **Where an engine runs is the setup's choice and not a rule of this package** 
+   Nothing in this package is a speech engine. [audio.cpp](https://github.com/0xShug0/audio.cpp)
    is the C++ audio inference framework built on ggml, and it is what answers a request. What this package carries is
    the front-end in front of it: the panel, the endpoint registry, the queues and placement rules, the voice registry,
-   the media capture, the audio store, and the four agent tools. **Where an engine runs is the setup's choice and not a
-   rule of this package** — an audio.cpp on the same machine is a normal setup, and so is a pair of them on two boxes.
-   Which one a job lands on is read with `endpoint_registry`, never assumed. The engine's own catalog is what a dispatch
-   is allowed to name.
-2. **Multi-node job scheduling.** A dispatch answers with a row and its id, not with audio. Jobs are placed across the
+   the media capture, the audio store, and the four agent tools.  
+2. **Multi-node job scheduling** A dispatch answers with a row and its id, not with audio. Jobs are placed across the
    slots that exist: a candidate on a machine holding none of this plugin's running jobs is chosen before one on a
-   machine that already holds one. Every engine holds one model at a time, so one job per endpoint is the design and a
-   queued row is normal, not broken. A row that is waiting carries exactly one current park key and says who paused
-   what; waiting is not a failure, and an engine saying its slot is full is a capacity answer about a healthy endpoint.
-   A pinned job is evaluated alone and never falls back.
-3. **What you can ask it for, each with the shape of the ask.**
-   1) A single-voice take in a registered voice — `audio_render {kind:"take", text:"Hello from DEEPAMP.",
-      voice:"ent_data"}`.
+   machine that already holds one. Allows ASYNC job processing across multiple CPUs/GPUs in the LAN. 
+3. **What you can ask it for**
+   1) A single-voice take in a registered voice — `audio_render {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}`.
    2) A music or effect take from a prompt, with a length named or not —
       `audio_render {kind:"generate", model:"…", text:"rain on a tin roof", duration_seconds:5}`. A take that names no
       length is filled from that model's own engine record, and the row says which record it came from.
@@ -34,130 +43,26 @@ rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero_
       separates the speakers and transcribes each one — `{kind:"transcribe", file_path:"/absolute/a.wav", model:"<one this slot serves>"}`
       and `{kind:"analysis", file_path:"/absolute/a.wav", model:"<one this slot serves>"}`. Both name the model they want
       the lane to transcribe with: the tool refuses either one without it and points at
-      `audio_status {what:"slot_models", fn:"stt"}`, which is where a name is read (T-892, 2026-11-19).
-   6) Speaker separation, voice conversion and stem work, as named task rows. Voice conversion is a kind of its own
-      since T-899 (2026-11-20): `audio_render {kind:"convert", source_job_id:"<a row that holds the audio>",
+      `audio_status {what:"slot_models", fn:"stt"}`.
+   6) Speaker separation, voice conversion and stem work, as named task rows. Voice conversion is a kind of its own: 
+      `audio_render {kind:"convert", source_job_id:"<a row that holds the audio>",
       target_voice:"<a registered voice>", model:"<one this slot serves>"}` renders a take the length of its source in
-      that voice. It asks the same task route the verb asks — the lane stages the reference sample, and the tool
-      refuses a missing source row, voice or model at its own door and names the read that answers each.
+      that voice. 
    7) A preset under `texts/presets/<folder>/`: the prompt, the side its folder names, and the model that preset was
       last run with, reported back on the same listing that offered it.
    8) A voice registered from a WAV the plugin can read, and the panel's own auto-generation chain, armed with
       `audio_control {what:"auto_gen", mode:"on"}` and started by the next press of a generation control.
 4. **A voice registry that belongs to this front-end.** Voices are registered from a WAV the plugin can read, the
-   plugin transcribes the sample for its reference text with the transcription model the caller names — `register` refuses
-   without one, for the same reason (T-892) — and a clone is staged to the target engine before it is asked
-   for. 33 voices are registered in this operator's store (read 2026-11-14, the same count as the 2026-11-11 read); the
-   authority for that number is `audio_voices {what:"list"}`, not this line.
-5. **An endpoint registry, not a fleet table.** Which slot exists, whether it answers, what it serves, what it is
-   holding: read with `endpoint_registry`, `endpoint_health`, `endpoint_models`, `queue_status`. This page carries no
-   address, no port and no fleet state, on purpose.
-6. **Four agent tools, each switchable on its own.** A call needs no model name and no endpoint id: this front-end
+   plugin transcribes the sample for its reference text with the transcription model the caller names - `register` refuses
+   without one — and a clone-sample is staged to the target engine before it is asked
+   for; the authority for that number is `audio_voices {what:"list"}`.
+5. **An endpoint registry** Which slot exists, whether it answers, what it serves, what it is
+   holding: read with `endpoint_registry`, `endpoint_health`, `endpoint_models`, `queue_status`. 
+6. **Four agent tools, each switchable on its own in DSH Plugin config.** A call needs no model name and no endpoint id: this front-end
    places the job and refuses what it cannot place.
-7. **And the things that are deliberately local.** Media capture through yt-dlp, and `mix_audio`, which is one ffmpeg
-   pass with no endpoint and no queue slot. This package starts no engine and downloads no model of its own. If an
-   engine sits on this machine, that is the setup it was given; if one does not answer, this reports that.
+7. **optional: Media capture through yt-dlp.** 
 
-## 2. Quickstart
-
-1. **What it needs.** A DSH harness at `>=0.2.2-rc.1` (`engines.dsh` in `package.json`) with a profile this bundle is
-   mounted into. `@deepseek-ai/cordis ~4.1.0` as a peer dependency and `@deepseek-ai/schemastery ~3.19.0` as the one
-   runtime dependency — both npm packages the profile resolves. A Node runtime: the host half is plain Node with no
-   compiled part of its own. An audio.cpp engine reachable from that host, **local or remote as the setup has it**,
-   added with `endpoint_add` and read back with `endpoint_registry`. A browser for the panel — it is the harness's own
-   web client, and `audio_control` reaches it only while the panel is open. Then three shell tools, each needed only by
-   the feature that uses it: `curl` for the endpoint health probes, the download reads and the station read; `ffmpeg`
-   — with `ffprobe` where a file is read — for every step that happens **on this host** rather than on an engine:
-   `mix_audio`, the remux controls, the normalization of a voice sample, the conversion of an imported file;
-   `yt-dlp` for media capture, which is unavailable unless `ytdlp_path` names the binary. A host without ffmpeg
-   renders from an engine perfectly and still cannot register a voice, and the row says so
-   (`ffmpeg is not found on the host running this plugin`) instead of reporting an exit number. Nothing in this
-   list installs an engine, downloads a model, or starts a service.
-   And one thing to know before a long take: the wall on an engine request is this plugin-s own. `job_timeout_sec`
-   (3600 s by default, read with `GET job_timeout`) is the number that times the call, because the call is run with
-   no deadline from the harness shell executor and this plugin bounds it instead (`CHANGELOG.md` T-912). A music
-   take on a CPU node runs past ten minutes and is payable without touching any profile setting; a row that ends at
-   the wall says which wall ended it (`docs/PROMPT_FIRST_SETUP.md` §5 item 5).
-2. **Install.** This package mounts as a Cordis bundle in a DSH profile. Two ways, both real: the harness's plugin
-   manager (`list_bundles` then `install_bundle`, which can install from a registry or from a local path), or a `link:`
-   dependency in the live profile's `package.json` — which is how this one is mounted. **Installing is not a
-   restart**: an install or an enable applies to the live profile, and the panel comes up with it. The restart
-   sentence is for a **host-half code change already sitting in the tree** — `lib/index.js` is loaded when the
-   harness boots. A client-only change goes live on a browser refresh. The mount rows, what each waits for, and what
-   a patch row does to a Config are in [AGENTS.md](AGENTS.md) section 3.
-3. **Ask the reads first.** They are what every other call needs, and they are the authority for what this front-end
-   has:
-   ```bash
-   curl -s  <harness>/api/deepamp/endpoint_registry?fn=tts     # the slots this plugin has
-   curl -sX POST <harness>/api/deepamp/endpoint_models \
-        -H 'Content-Type: application/json' -d '{"fn":"tts","id":"primary"}'   # what that engine serves
-   curl -s  <harness>/api/deepamp/queue_status                 # what is queued, running or parked, and why
-   ```
-   `<harness>` is whatever the session is running at. It is not a constant of this page.
-4. **A human's path is the panel.** Ask for one take in a voice you already have, register a voice from a WAV, ask for
-   a transcription, watch what each slot is doing, play a rendered file back, read the plugin's own logs. The panel's
-   settings live in the browser under `deepamp:*`, not in the plugin store.
-5. **An agent's path is the tools.**
-   ```text
-   audio_render  {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}
-   audio_render  {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}
-   audio_render  {kind:"transcribe", file_path:"/absolute/path/to/a.wav", model:"<from audio_status slot_models>"}
-   audio_render  {kind:"convert", source_job_id:"<a finished row>", target_voice:"<from audio_voices list>", model:"<from audio_status slot_models>"}
-   audio_status  {what:"lane"}
-   audio_voices  {what:"list"}
-   audio_control {what:"play", job_id:"ap-1330"}
-   audio_control {what:"auto_gen", mode:"on"}
-   ```
-   A second voice left out of a scene line is the model inventing that speaker, not a missing field. `audio_control`
-   reaches the browser only while the panel is open — including that last line, which arms the panel's
-   auto-generation chain; it starts on the next press of a generation control. `audio_status {what:"lane"}` and the
-   playlist and row answers carry that chain's state (`auto_gen`) and mark the rows it started (`auto_started`);
-   when no panel is open to report its own chain, those answers say they do not know.
-6. **A dispatch answers with a row.** `{"ok":true,"job_id":"ap-…"}` — then `audio_status {what:"job", job_id:"…"}` or
-   `job_status?job_id=` is how you follow it, and the take arrives later at `/deepamp/<job_id>`. Do not re-ask for a
-   take you already hold an id for.
-7. **Configuration is one table, and it is not here.** Precedence is environment > declared Config > the state file >
-   the built-in default; every field and its range is in [AGENTS.md](AGENTS.md) section 6. A value out of range is
-   refused and named in the boot audit.
-
-## 3. The sections, in the order the panel lists them
-
-One guide per section, one full-resolution screenshot in each guide. The order below is the order the panel lists its
-sections in: taken from the running panel during the 2026-11-10 screenshot round, and read off the same panel again on
-2026-11-14, where it came back the same. **All eleven guides carry their text** — written 2026-11-14, each following
-the layout in [docs/PROMPT_DOC_UPDATE.md](docs/PROMPT_DOC_UPDATE.md) section 5: a line saying what the section is for,
-the controls in the order the eye meets them, one copyable example, what the section refuses, and a Details block only
-where a reader would otherwise guess a bound wrong.
-
-1. [Playlist](docs/DETAILS_PLAYLIST.md) — the player window, the rows of every kind, the row controls.
-2. [Models](docs/DETAILS_MODELS.md) — the model tree read from the engines.
-3. [Voices](docs/DETAILS_VOICES.md) — the registered voices and their controls.
-4. [TTS / MUSIC / SFX](docs/DETAILS_TTS_MUSIC_SFX.md) — the single-voice request form.
-5. [TTSD, multi-speaker batch](docs/DETAILS_TTSD.md) — the scene form and its parts.
-6. [STT, transcription](docs/DETAILS_STT.md) — the transcription form and its file input.
-7. [Auto-play Agent Session](docs/DETAILS_AUTOPLAY.md) — the agent-side controls.
-8. [Advanced (Options, Remux)](docs/DETAILS_ADVANCED.md) — the options block and the remux controls.
-9. [Settings](docs/DETAILS_SETTINGS.md) — the persisted settings the plugin reads back.
-10. [Endpoints](docs/DETAILS_ENDPOINTS.md) — the slot list with each engine's catalog and health.
-11. [Logs](docs/DETAILS_LOGS.md) — the page log and the host's own lane log, read a page at a time.
-
-**Where the rest of the documentation lives.** [AGENTS.md](AGENTS.md) is the agent guide: the verbs, what the plugin
-refuses, how a job waits, how to work in this tree. [CHANGELOG.md](CHANGELOG.md) is what changed and what was
-measured, newest first. [docs/FACTS.md](docs/FACTS.md) holds verified facts and dated measurements to cite instead of
-re-investigating — a dated line there is a pointer to verify, not a current answer.
-[docs/VERBS.md](docs/VERBS.md) is the verb reference for a person or an agent that calls the routes directly: what each
-one is for, what its answer holds, and what it refuses instead — and the executable contract in
-[tests/verb_contract.test.cjs](tests/verb_contract.test.cjs) is what keeps that page from drifting out of the routes
-the plugin actually answers.
-[docs/MODELS_TABLE.md](docs/MODELS_TABLE.md), [docs/MODELS_REMOTE.md](docs/MODELS_REMOTE.md),
-[docs/MODEL_PROVENANCE.md](docs/MODEL_PROVENANCE.md) and [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv)
-are the measured model records; two of them are read by the host suite, so they are part of the package.
-[docs/PROMPT_CODING.md](docs/PROMPT_CODING.md) the doorway for a coding pass and
-[docs/PROMPT_FIRST_SETUP.md](docs/PROMPT_FIRST_SETUP.md) the doorway for a first setup — the three test creations, the
-order they go in, the lengths they are asked for, and how a model is chosen for each from the engine's catalog rather
-than from that file.
-
-## 4. Architecture
+## 2. Architecture
 
 1. **The shape of it.** The plugin is a front-end and a scheduler. The audio work happens on machines it calls
    slots — each one an audio.cpp engine reached over the network, each with its own model catalog. A dispatch names a
@@ -257,9 +162,87 @@ than from that file.
    slot. Which slot is primary, which is paused or held, and what any of them currently serves is read in the session
    that needs it, never carried in a document.
 
-## 5. What changed recently, and what is planned see [CHANGELOG.md](CHANGELOG.md)
+## 3. What changed recently, and what is planned see [CHANGELOG.md](CHANGELOG.md)
 
-## 6. Disclaimer, thanks, licence
+## 4. Quickstart
+
+1. **What it needs.** A DSH harness at `>=0.2.2-rc.1` (`engines.dsh` in `package.json`) with a profile this bundle is
+   mounted into. `@deepseek-ai/cordis ~4.1.0` as a peer dependency and `@deepseek-ai/schemastery ~3.19.0` as the one
+   runtime dependency — both npm packages the profile resolves. A Node runtime: the host half is plain Node with no
+   compiled part of its own. An audio.cpp engine reachable from that host, **local or remote as the setup has it**,
+   added with `endpoint_add` and read back with `endpoint_registry`. A browser for the panel — it is the harness's own
+   web client, and `audio_control` reaches it only while the panel is open. Then three shell tools, each needed only by
+   the feature that uses it: `curl` for the endpoint health probes, the download reads and the station read; `ffmpeg`
+   — with `ffprobe` where a file is read — for every step that happens **on this host** rather than on an engine:
+   `mix_audio`, the remux controls, the normalization of a voice sample, the conversion of an imported file;
+   `yt-dlp` for media capture, which is unavailable unless `ytdlp_path` names the binary. A host without ffmpeg
+   renders from an engine perfectly and still cannot register a voice, and the row says so
+   (`ffmpeg is not found on the host running this plugin`) instead of reporting an exit number. Nothing in this
+   list installs an engine, downloads a model, or starts a service.
+   And one thing to know before a long take: the wall on an engine request is this plugin-s own. `job_timeout_sec`
+   (3600 s by default, read with `GET job_timeout`) is the number that times the call, because the call is run with
+   no deadline from the harness shell executor and this plugin bounds it instead (`CHANGELOG.md` T-912). A music
+   take on a CPU node runs past ten minutes and is payable without touching any profile setting; a row that ends at
+   the wall says which wall ended it (`docs/PROMPT_FIRST_SETUP.md` §5 item 5).
+2. **Install.** This package mounts as a Cordis bundle in a DSH profile. Two ways, both real: the harness's plugin
+   manager (`list_bundles` then `install_bundle`, which can install from a registry or from a local path), or a `link:`
+   dependency in the live profile's `package.json` — which is how this one is mounted. **Installing is not a
+   restart**: an install or an enable applies to the live profile, and the panel comes up with it. The restart
+   sentence is for a **host-half code change already sitting in the tree** — `lib/index.js` is loaded when the
+   harness boots. A client-only change goes live on a browser refresh. The mount rows, what each waits for, and what
+   a patch row does to a Config are in [AGENTS.md](AGENTS.md) section 3.
+3. **Ask the reads first.** They are what every other call needs, and they are the authority for what this front-end
+   has:
+   ```bash
+   curl -s  <harness>/api/deepamp/endpoint_registry?fn=tts     # the slots this plugin has
+   curl -sX POST <harness>/api/deepamp/endpoint_models \
+        -H 'Content-Type: application/json' -d '{"fn":"tts","id":"primary"}'   # what that engine serves
+   curl -s  <harness>/api/deepamp/queue_status                 # what is queued, running or parked, and why
+   ```
+   `<harness>` is whatever the session is running at. It is not a constant of this page.
+4. **A human's path is the panel.** Ask for one take in a voice you already have, register a voice from a WAV, ask for
+   a transcription, watch what each slot is doing, play a rendered file back, read the plugin's own logs. The panel's
+   settings live in the browser under `deepamp:*`, not in the plugin store.
+5. **An agent's path is the tools.**
+   ```text
+   audio_render  {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}
+   audio_render  {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}
+   audio_render  {kind:"transcribe", file_path:"/absolute/path/to/a.wav", model:"<from audio_status slot_models>"}
+   audio_render  {kind:"convert", source_job_id:"<a finished row>", target_voice:"<from audio_voices list>", model:"<from audio_status slot_models>"}
+   audio_status  {what:"lane"}
+   audio_voices  {what:"list"}
+   audio_control {what:"play", job_id:"ap-1330"}
+   audio_control {what:"auto_gen", mode:"on"}
+   ```
+   A second voice left out of a scene line is the model inventing that speaker, not a missing field. `audio_control`
+   reaches the browser only while the panel is open — including that last line, which arms the panel's
+   auto-generation chain; it starts on the next press of a generation control. `audio_status {what:"lane"}` and the
+   playlist and row answers carry that chain's state (`auto_gen`) and mark the rows it started (`auto_started`);
+   when no panel is open to report its own chain, those answers say they do not know.
+6. **A dispatch answers with a row.** `{"ok":true,"job_id":"ap-…"}` — then `audio_status {what:"job", job_id:"…"}` or
+   `job_status?job_id=` is how you follow it, and the take arrives later at `/deepamp/<job_id>`. Do not re-ask for a
+   take you already hold an id for.
+7. **Configuration is one table, and it is not here.** Precedence is environment > declared Config > the state file >
+   the built-in default; every field and its range is in [AGENTS.md](AGENTS.md) section 6. A value out of range is
+   refused and named in the boot audit.
+8. **Where the rest of the documentation lives.** 
+[AGENTS.md](AGENTS.md) is the agent guide: the verbs, what the plugin
+refuses, how a job waits, how to work in this tree. [CHANGELOG.md](CHANGELOG.md) is what changed and what was
+measured, newest first. [docs/FACTS.md](docs/FACTS.md) holds verified facts and dated measurements to cite instead of
+re-investigating — a dated line there is a pointer to verify, not a current answer.
+[docs/VERBS.md](docs/VERBS.md) is the verb reference for a person or an agent that calls the routes directly: what each
+one is for, what its answer holds, and what it refuses instead — and the executable contract in
+[tests/verb_contract.test.cjs](tests/verb_contract.test.cjs) is what keeps that page from drifting out of the routes
+the plugin actually answers.
+[docs/MODELS_TABLE.md](docs/MODELS_TABLE.md), [docs/MODELS_REMOTE.md](docs/MODELS_REMOTE.md),
+[docs/MODEL_PROVENANCE.md](docs/MODEL_PROVENANCE.md) and [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv)
+are the measured model records; two of them are read by the host suite, so they are part of the package.
+[docs/PROMPT_CODING.md](docs/PROMPT_CODING.md) the doorway for a coding pass and
+[docs/PROMPT_FIRST_SETUP.md](docs/PROMPT_FIRST_SETUP.md) the doorway for a first setup — the three test creations, the
+order they go in, the lengths they are asked for, and how a model is chosen for each from the engine's catalog rather
+than from that file.
+
+## 5. Disclaimer, thanks, licence
 
 1. **Disclaimer.** This is one person's hobby project that happens to run every day. It carries no warranty and no
    support promise. It is not a speech engine, not a service, and not a hosted product: it is the front-end in front of
