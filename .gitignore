@@ -27,3 +27,4 @@ Thumbs.db
 # The local and private half of this package: machine names, this machine's paths,
 # account handles and ids. Never committed, never pushed, not part of a release.
 LOCALHOSTS.md
+TODOS.md
