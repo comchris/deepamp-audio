@@ -1,20 +1,10 @@
-# DEEPAMP — one front-end for an audio.cpp engine running multiple models on demand
+# DEEPAMP — front-end for audio.cpp running models on demand
 
-A browser panel, the host half that places audio jobs on the [audio.cpp](https://github.com/0xShug0/audio.cpp)
-engines a setup has — on this machine or on another one, whichever the operator's setup runs — and a component that puts
-that front-end in front of an agent as four tools. Mounted in a live DSH profile as a Cordis bundle:
-`@<scope>/deepamp-audio` (the scope is this machine's account handle, so it is written as a placeholder here and named in `LOCALHOSTS.md` §9; `package.json` and `cordis.patch.yml` carry the real name, because that is the identity the harness composes). HTTP prefix `/api/deepamp`, audio served under `/deepamp`, panel row `deepamp`, agent tools
-`audio_render`, `audio_status`, `audio_voices`, `audio_control`.
-
-**A WIP vibe-coding hobby project, shared with the other apes.** It runs every day on one operator's machines. It is
-not a product page and does not pretend to be one.
+DSH-Plugin as frontend for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines 
+**A WIP vibe-coding hobby project, shared with the other apes.** This is not a product page.
 
 ![The DEEPAMP player window with a take of a registered voice playing: the ticker names it, the visualizer is
 rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero__playing__968x1464.png)
-
-![The same player window at 904x1592](docs/screenshots/v0.1.0/hero__playing__904x1592.png)
-
-![The same player window, a second take at 968x1464](docs/screenshots/v0.1.0/hero__playing__968x1464__r2.png)
 
 
 ## 1. What it is
