@@ -1,4 +1,4 @@
-[DSH-Plugin](https://github.com/deepseek-ai/deepseek-harness) as front-end for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines 
+a [DSH-Plugin](https://github.com/deepseek-ai/deepseek-harness) as control for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines.
 **A WIP vibe-coding hobby project, shared with the other apes.** This is not a product page.
 
 ![The DEEPAMP player window with a take of a registered voice playing: the ticker names it, the visualizer is
