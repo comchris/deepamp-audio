@@ -152,19 +152,10 @@ the plugin actually answers.
 [docs/MODELS_TABLE.md](docs/MODELS_TABLE.md), [docs/MODELS_REMOTE.md](docs/MODELS_REMOTE.md),
 [docs/MODEL_PROVENANCE.md](docs/MODEL_PROVENANCE.md) and [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv)
 are the measured model records; two of them are read by the host suite, so they are part of the package.
-[docs/PROMPT_DOC_UPDATE.md](docs/PROMPT_DOC_UPDATE.md) is the standing procedure for a document pass,
 [docs/PROMPT_CODING.md](docs/PROMPT_CODING.md) the doorway for a coding pass and
 [docs/PROMPT_FIRST_SETUP.md](docs/PROMPT_FIRST_SETUP.md) the doorway for a first setup — the three test creations, the
 order they go in, the lengths they are asked for, and how a model is chosen for each from the engine's catalog rather
-than from that file. [docs/RECORD_README_20261110_v0.1.0.md](docs/RECORD_README_20261110_v0.1.0.md) is this landing
-page as it stood on 2026-11-10, kept as the record of what it claimed then. **Open work is in this package:**
-[TODOS.md](TODOS.md) — part one the open-cards index, one line each, part two the version targets. The workspace
-tracker [../TODOS.md](../TODOS.md) carries the operator's rulings as WM cards and the cross-project items, and this
-package's file points at them rather than replacing them. **Private data is not tracked inside this repository** — the
-operator's rule of 2026-11-15. The machine names, this machine's absolute paths, the account handle and the local ids
-live in `LOCALHOSTS.md`, a file this package's `.gitignore` names, so it sits with the code and appears in no clone, no
-tag and no published package. A page here carries a role word — "the primary slot", "a CPU node" — and writes a store as
-`<home>/.dsh/deepamp-audio`. A measurement keeps its numbers; the address it was measured on is not carried.
+than from that file.
 
 ## 4. Architecture
 
@@ -266,32 +257,7 @@ tag and no published package. A page here carries a role word — "the primary s
    slot. Which slot is primary, which is paused or held, and what any of them currently serves is read in the session
    that needs it, never carried in a document.
 
-## 5. What changed recently, and what is planned
-
-1. **The record is [CHANGELOG.md](CHANGELOG.md)** — cards, newest first, about twelve lines each, each one naming the
-   ruling, the measured before and after, and the state word. The most recent ones: **T-841** records the side a preset
-   carries and the model that preset was run with; **T-847** names the player window's quick music line as the one
-   exception to the one-preset-control rule; **T-857** warns on a preset whose recorded model is not the one selected;
-   **T-858 to T-861** are the eleven section guides and the layout they take; **T-862** is the model records re-read
-   against the live catalogs. Further back, **T-837** fills a generated take's length from the model's own record, and
-   **T-772** and **T-773** are the rate bridge and the outcome classes behind a real measured case.
-2. **Version targets, as the operator ruled them on 2026-11-07.** `0.1.0` is this tree as it stands. **v0.1.1** was the
-   first bugfix release plus the eleven section guides — the guides are written (2026-11-14), and what else that release
-   carries is the tracker's to say. **v0.1.2** carries the colour work. **v0.2.0** carries the long rewrites. The
-   tracker, [TODOS.md](TODOS.md), is the authority for what is in each and the only place a version target is written;
-   this line is a pointer, not a plan.
-3. **Test state, measured 2026-11-14.** 26 suites, `npm test`. The last full run: **23 per-suite summaries totalling
-   5 857 assertions, 0 fail, `RC_ALL=0`** (`scratch/suite_full_20261114_t862_model_records.log`) — the same numbers the
-   log taken earlier the same day gives, counted the same way, so the pass between them moved nothing. They are
-   static-and-mock: no engine is called, no audio is rendered, no server is started. A green run says the package is
-   consistent with its own contracts. It does not say an engine answered.
-4. **Known limits, stated plainly.** Every engine this plugin drives has `max_loaded_models=1`, so one job per endpoint
-   and a queued row is normal, not broken. A pinned row is evaluated alone and never falls back to another slot.
-   `audio_control` reaches the browser only while the panel is open. The panel is a narrow column in the harness layout
-   — 484 CSS px at a desktop width — and it is a panel, not a page. Separation models want 44 100 Hz input; the rate
-   bridge makes a real copy row rather than pretending otherwise. **The git state is real:** the repository in this
-   directory is initialised, `v0.1.0` is tagged, and the work since then is committed in dated commits. Nothing here is
-   pushed — pushing is the operator's word, asked for separately.
+## 5. What changed recently, and what is planned see [CHANGELOG.md](CHANGELOG.md)
 
 ## 6. Disclaimer, thanks, licence
 
