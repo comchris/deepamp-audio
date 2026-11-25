@@ -1,11 +1,8 @@
-# DEEPAMP — front-end for audio.cpp running models on demand
-
-DSH-Plugin as frontend for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines 
+[DSH-Plugin](https://github.com/deepseek-ai/deepseek-harness) as front-end for [audio.cpp](https://github.com/0xShug0/audio.cpp) engines 
 **A WIP vibe-coding hobby project, shared with the other apes.** This is not a product page.
 
 ![The DEEPAMP player window with a take of a registered voice playing: the ticker names it, the visualizer is
 rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero__playing__968x1464.png)
-
 
 ## 1. What it is
 
