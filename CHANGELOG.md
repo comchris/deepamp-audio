@@ -66,6 +66,13 @@ checked rather than assumed:
    **WM-21** (webamp) in `../TODOS.md`. Cards older than that date keep the id they cited, and a reader following one
    should read the topic, not the number.
 
+## The README-s own hero frame was not in git and not in its manifest (T-932)
+
+1. **Found while measuring the tree for the freeze, not while looking for it.** `README.md:6` renders `docs/screenshots/v0.1.0/hero_player_music.png` as the landing-page hero. That file was **untracked in git** and **absent from `docs/screenshots/v0.1.0/manifest.json`** - measured: the manifest lists 17 shots, the version directory holds 18 files. A clone or a tag of this package would have shown a broken image on its first line, and the record of the frame round would have been short by one frame with no note saying so.
+2. **What was added.** The PNG into git, and one manifest row for it: `px [743, 955]`, `bytes 191192`, and the digest. Its `from` says plainly that it is the README hero frame added by hand on 2026-11-25 and was **not** produced by the capture round that named the other frames - the record does not pretend it came from a round it did not come from.
+3. **The method, measured before writing it.** The manifest key is `sha12`, and it is **not** a sha1 of the file: checked against four rows already listed, it is **`sha256(file)` truncated to 12 hex characters** (`bytes` is the plain file size, which also checked). The key name is the older word; the method is what the rows carry, and the row added here follows the rows. Nothing was renamed - the fix was to write the right digest, not to relabel the field.
+4. **State: done, and committed with the rest** (see `TODOS.md` item 13). No document line was changed: `README.md` was left exactly as the operator left it.
+
 ## A page in the browser can no longer drive the lane: the route owner takes an origin rule (T-931)
 
 1. **The decision, verbatim** (the operator, 2026-11-26, from four scopes put to them with the surface measured): **"Origin rule only - no script breaks"**. What the measurement said first: the surface is **103 route rows — 24 GET-only, 56 POST, 23 GET-or-POST**, so "gate the writes" would have meant 79 write paths; and the harness-s own seam (`ctx.connection.requestRejection`, which applies the Host/Origin checks **and** browser authentication) would have asked every script and every hand-run `curl` for a per-process launch token — `$DSH_WEB_URL` carries none (21 characters, no token parameter).
