@@ -187,7 +187,11 @@ recorded in `CHANGELOG.md` T-840:
    worth one line of history because an installing agent will otherwise be told the opposite by older notes: on a
    stock profile the executor ends a shell call at 600 000 ms, and a first **music** take on a CPU node — which
    runs past ten minutes before it answers — was cut at ten minutes with no answer from the engine at all. Short
-   calls (probes, model loads, ffmpeg, capture) keep the executor-s deadline; their numbers sit far below it. A row
+   calls (probes, model loads, the ffmpeg legs) keep the executor-s deadline, and that is safe because every one of them
+   asks for a number well under 600 000 ms — the largest is 300 000 ms, and `tests/host.test.cjs` refuses any call that
+   asks for more without going through the own wall. The **capture download** is the exception and now follows the
+   same rule as an engine request: it asks 900 000 ms, which is above the stock clamp, so it runs with no executor
+   deadline and this plugin-s own wall at that 900 s, and the row names the capture wall (`CHANGELOG.md` T-930). A row
    that ends at the wall names the wall, and the number it named is read with `GET job_timeout`
    (`AGENTS.md` 6, `CHANGELOG.md` T-908 for the wording of that row).
 6. **Start and probe the engine directly.** `GET /health` answers the backend and how many models the config

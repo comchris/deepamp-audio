@@ -20,6 +20,21 @@ re-keyed and are carried unchanged:** they name a file or a package no engine an
 that says so is more useful than one that quietly renames it. The second table's rows are the 2026-09-20
 repair verdicts and those verdicts were not touched.
 
+**Re-read 2026-11-26 (Berlin), the records half of `TODOS.md` part one item 41.** The join was run again against a
+fresh read of the two CPU slots in play — `GET <engine>/v1/models` on each, captured in `scratch/` as
+`item41_engine_models_8963_20261126.json` and `item41_engine_models_8962_20261126.json` — with
+`scratch/item41_recut_measure_20261126.py`; the map is `scratch/item41_recut_map_20261126.csv` and the pre-change
+copy of this file is `scratch/MODEL_PROVENANCE.md.bak_20261126_pre_item41_records_pass`. Join order: the exact id,
+then the engine's normalisation (`_` for `-`), then the file the row names. **One row of this file was re-keyed:**
+`sortformer_diar` in the first table is written as `sortformer-diar`, because that row names the same q8_0 package
+the engine serves under that id today, and the second table already carries that id. **Four rows were left as
+written, and why:** `index_tts2` and `moss_tts_nano` name the f16 and the bf16 package, and those two ids serve the
+q8_0 files today, so a rename would hang this record's repair verdicts on packages it never checked; `qwen3-tts` and
+`qwen3-customvoice` name packages no engine answers. Five further rows name a model no live catalog answers
+(`fun_asr_nano`, `higgs_tts`, `qwen3-voicedesign` among them) — all of them are listed in the map file and carried
+unchanged, which is the same treatment the fifteen above were given. The assertion in `tests/host.test.cjs` that
+reads a row of this file is untouched and the suite was re-run green.
+
 Status doc for the "unknown / mismatched model files" remediation. Companion to
 `MODELS_TABLE.md` (engine matrix + test columns) and `MODELS_REMOTE.md` (paths).
 Taken **2026-09-20**. This file tracks repair progress; it does **not** carry test
@@ -65,7 +80,7 @@ nothing is misnamed).
 
 | plugin id | webui download pkg | task | plugin use | on-disk (pre) | official dl | note | status |
 |---|---|---|---|---|---|---|---|
-| `sortformer_diar` | `sortformer_diar_4spk_v1_q8_0` | diar | not wired | 176 MB | 176 MB | size matches | **DONE** 2026-09-20 (validation install; flipped up_to_date) |
+| `sortformer-diar` | `sortformer_diar_4spk_v1_q8_0` | diar | not wired | 176 MB | 176 MB | size matches | **DONE** 2026-09-20 (validation install; flipped up_to_date) |
 | `omnivoice_f16` | `omnivoice_f16` | tts | TTS | **1.40 GB** | **1.64 GB** | **SIZE MISMATCH — wrong/partial file** | **DONE** 2026-09-20 (re-download, now up_to_date 1.64 GB) |
 | `qwen3-tts-bf16` | `qwen3_tts_1_7b_base_bf16` | tts | TTS | **1.39 GB** | **4.20 GB** | **SIZE MISMATCH — ~1/3 expected (bad build)** | **DONE** 2026-09-20 (re-download, now up_to_date 4.20 GB) |
 | `qwen3-tts` | `qwen3_tts_1_7b_base_q8_0` | tts | TTS | 2.70 GB | 2.70 GB | size matches, no manifest | **DONE** 2026-09-20 (re-download, now up_to_date) |

@@ -304,7 +304,10 @@ async function bootKind(seed) {
     try { stored = JSON.parse(global.localStorage.getItem('deepamp:sel')); } catch (e) {}
     return {
       kind: k ? String(k.props.value) : null,
-      kindOptions: k ? flat(k).filter(function (o) { return o && o.type === 'option'; }).map(function (o) { return { value: o.props.value, disabled: !!o.props.disabled }; }) : [],
+      kindOptions: k ? flat(k).filter(function (o) { return o && o.type === 'option'; }).map(function (o) { return { value: o.props.value, disabled: !!o.props.disabled,
+        // T-924: the label is part of what is being tested — an unserved kind is now identified by the words on its
+        // own line, not by a `disabled` flag.
+        label: Array.isArray(o.props.children) ? o.props.children.join('') : String(o.props.children == null ? '' : o.props.children) }; }) : [],
       model: m ? String(m.props.value) : null,
       modelOptions: m ? flat(m).filter(function (o) { return o && o.type === 'option'; }).map(function (o) { return o.props.value; }) : [],
       stored: stored,
@@ -560,8 +563,19 @@ async function bootLane(seedSel) {
   const k15 = b15.read();
   check('T-229: no saved kind -> the first kind the catalog serves', k15.kind === 'tts', k15.kind);
   check('T-229: and the model inside that kind is one the kind lists, in the order the lane lists it', k15.model === 'm1', [k15.model, k15.modelOptions]);
-  check('T-229: the kind selector lists the served kinds only',
-    k15.kindOptions.filter(function (o) { return !o.disabled; }).map(function (o) { return o.value; }).join(',') === 'tts,clon,sep,vc',
+  // T-924 CONTRACT CHANGE (2026-11-26, the operator, verbatim: "The available ui-selections should actually never
+  // result from a single endpoint's feature set as user might want to set other endpoint ... ---> convert into an
+  // overall fix on all fronts and do so", and "make selectable even if no model found for the section"). This check
+  // read "the kind selector lists the SERVED kinds only". The selector lists the kinds the vocabulary knows and a
+  // kind this slot has no model for is a PICKABLE line that says so — that is the affordance the ruling asked for.
+  // What the check stood for is kept whole: the served kinds are exactly the served set, in order.
+  const served15 = k15.kindOptions.filter(function (o) { return !/no model on this slot/.test(o.label); }).map(function (o) { return o.value; });
+  const unserved15 = k15.kindOptions.filter(function (o) { return /no model on this slot/.test(o.label); });
+  check('T-229 (T-924 contract change): the kind selector offers exactly the served kinds in order, and the kinds nothing here serves as pickable lines that say so',
+    served15.join(',') === 'tts,clon,sep,vc'
+      && unserved15.map(function (o) { return o.value; }).join(',') === 'vdes,gen,s2s'
+      && !unserved15.some(function (o) { return o.disabled; })
+      && k15.kindOptions.every(function (o) { return ['tts', 'clon', 'vdes', 'sep', 'gen', 'vc', 's2s'].indexOf(o.value) >= 0; }),
     JSON.stringify(k15.kindOptions));
 
   // 16. A saved kind is restored, with a model that serves it.
@@ -576,11 +590,18 @@ async function bootLane(seedSel) {
   check('T-229: a saved model the saved kind cannot serve is never restored',
     k17.kind === 'sep' && k17.model === 'bs_roformer' && k17.modelOptions.indexOf('m1') < 0, [k17.kind, k17.model, k17.modelOptions]);
 
-  // 18. A saved kind no model serves is not restored either — it falls back to a served
-  //     kind rather than showing an empty model list.
+  // 18. T-924 CONTRACT CHANGE (2026-11-26, the operator, verbatim: "we could implement a fallback to the single
+  //     model of this 'section/type' if there is at least one shown … it must be prevented to send the music
+  //     prompts to the speech lanes on accident - bad user xp"). This check used to read "a saved kind no model
+  //     serves FALLS BACK to a served kind, never an empty list" — and that fallback is exactly how a music prompt
+  //     came to be aimed at a speech model. The kind is now KEPT, with no model, and the empty model line says
+  //     what would settle it. The memory half is unchanged and still measured: the kind the person chose is what
+  //     is stored and what the next reload restores.
   const k18 = (await bootKind({ 'deepamp:sel': JSON.stringify({ tts_kind: 'gen' }) })).read();
-  check('T-229: a saved kind no model serves falls back to a served kind, never an empty list',
-    k18.kind === 'tts' && k18.modelOptions.length > 0, [k18.kind, k18.modelOptions]);
+  check('T-229 (T-924 contract change): a saved kind nothing here serves is kept with an EMPTY model slot, stored and restored as that kind, never traded for a kind that has a model',
+    k18.kind === 'gen' && k18.model === '' && k18.modelOptions.every(function (v) { return v === ''; })
+      && !!k18.stored && k18.stored.tts_kind === 'gen',
+    [k18.kind, k18.model, k18.modelOptions, k18.stored && k18.stored.tts_kind]);
 
   // 19. Per-kind model memory: each kind keeps its own model across a round trip.
   const b19 = await bootKind({});

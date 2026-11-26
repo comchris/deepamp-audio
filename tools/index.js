@@ -143,30 +143,30 @@ function renderTool715(audioPlay) {
   return {
     name: 'audio_render',
     description:
-      'Put one job on the DEEPAMP audio lane: a single-voice take, a generated take from a prompt, a multi-voice scene, a plan for a scene, a transcription of an audio file, or a voice conversion of a row that already holds audio. The lane queues its work — the answer is the job row and its id, and the audio arrives later, never in this conversation. A model the slot this job aims at does not serve is refused before anything is queued.',
+      'Put one job on the DEEPAMP audio lane: a single-voice take, a generated take from a prompt, a multi-voice scene, a plan for a scene, a transcription of an audio file, or a voice conversion of a row that already holds audio. The lane queues its work — the answer is the job row and its id, and the audio arrives later, never in this conversation. A model the slot does not serve is refused.',
     parameters: {
       kind: {
         type: 'string', required: true,
         enum: ['take', 'generate', 'scene', 'plan', 'transcribe', 'analysis', 'convert'],
         description:
-          'What kind of job. take is one voice speaking text. generate is one generated take from a prompt — music or a sound effect, whichever side of the generator the model you name serves; the row cannot say which side it got. scene is a multi-voice dialogue rendered as a batch. plan works a scene out and answers what it would do, dispatching nothing. transcribe turns an audio file into text. analysis reads an audio file through the speaker-tagged chain: the speakers are separated and each one\'s words are transcribed. convert turns audio that already exists on the lane into a registered voice: source_job_id names the row holding the audio, target_voice names the voice to convert into, and the model must be one the slot lists. It asks the same task route the verb asks — the lane stages the reference sample, and the family-s own reference channel and the capability bar stay the host-s, not a second copy of them.',
+          'What kind of job. take is one voice speaking text. generate is one generated take from a prompt — music or a sound effect, whichever side of the generator the model you name serves; the row cannot say which side it got. scene is a multi-voice dialogue rendered as a batch. plan works a scene out and answers what it would do, dispatching nothing. transcribe turns an audio file into text. analysis reads an audio file through the speaker-tagged chain: the speakers are separated and each one\'s words are transcribed. convert turns audio that already exists on the lane into a registered voice: source_job_id names the row holding the audio, target_voice names the voice to convert into.',
       },
       text: { type: 'string', description: 'For take: the words to render. For generate: the prompt that says what to generate.' },
       voice: {
         type: 'string',
         description:
-          'For take: a voice name from the registry (audio_voices, list). Leave it out for a model that needs no voice. A design model takes no voice at all — its voice is shaped by instructions, and a voice given with it is dropped. A name the registry holds is staged to the engine as a sample; a name it does not hold is sent to the engine as a name, which is what a model with its own built-in speakers asks for — and in that case any refusal is the engine\'s, after the row exists.',
+          'For take: a voice name from the registry (audio_voices, list). Leave it out for a model that needs no voice. A design model takes no voice at all — its voice is shaped by instructions, and a voice given with it is dropped. A name the registry holds is used as a sample; any other name is passed to the engine as a name, and a refusal about it is the engine\'s, after the row exists.',
       },
       instructions: { type: 'string', description: 'For a design model: how the voice should sound.' },
       duration_seconds: {
         type: 'number',
         description:
-          'For generate: how long the take should be, in seconds. Leave it out and the lane takes the length that model\'s own capability record declares, and the row names the record it came from — naming a length is how you overrule that, and a length you name is never replaced. A family with no length knob of its own (one that re-times an input) drops the number and says so on the row.',
+          'For generate: how long the take should be, in seconds. Leave it out and the length comes from that model\'s own capability record, named on the row; a length you name is never replaced.',
       },
       model: {
         type: 'string',
         description:
-          'A model the slot this job aims at actually serves. Read it with audio_status (slot_models) first — naming a model from memory is the usual reason a dispatch is refused. On analysis this names the transcription model; the speaker-separation model is the lane\'s own and this tool does not name it. Leaving it out is not one behaviour: a generated take is refused without a model, a scene or a plan is refused without one and the refusal names the read that lists what the slot serves, a voice take is accepted with none, and a transcription or a speaker analysis is refused without one, by this tool, before it asks the lane for anything.',
+          'A model the slot this job aims at actually serves. Read it with audio_status (slot_models) first — naming a model from memory is the usual reason a dispatch is refused. On analysis this names the transcription model; the speaker-separation model is the lane\'s own and is not named here. Leaving it out is refused for every kind except a voice take, and the refusal names the read that lists what the slot serves.',
       },
       file_path: { type: 'string', description: 'For transcribe and analysis: an absolute path to an audio file the plugin may read.' },
       dialogue: {
@@ -184,12 +184,12 @@ function renderTool715(audioPlay) {
       source_job_id: {
         type: 'string',
         description:
-          'For convert: the row that holds the audio to convert — from audio_status (recent), or a row this session dispatched. A row with no finished audio behind it is refused by the lane before anything is rendered.',
+          'For convert: the row that holds the audio to convert — from audio_status (recent), or a row this session dispatched.',
       },
       target_voice: {
         type: 'string',
         description:
-          'For convert: the registered voice to convert the source into (audio_voices, list). The lane stages that voice-s own sample onto the endpoint that renders the take; this tool sends no path and no sample of its own.',
+          'For convert: the registered voice to convert the source into (audio_voices, list).',
       },
       title: { type: 'string', description: 'For scene and plan: the name the render is filed under.' },
       endpoint_id: {

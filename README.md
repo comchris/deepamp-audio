@@ -3,121 +3,72 @@ a [DSH-Plugin](https://github.com/deepseek-ai/deepseek-harness) as control for [
 This Third-party content is independently maintained and is NOT reviewed or endorsed by DeepSeek.
 Please verify its source and assess any risks before using it.
 
-![The DEEPAMP player window with a take of a registered voice playing: the ticker names it, the visualizer is
-rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero__playing__968x1464.png)
+![The DEEPAMP player window](docs/screenshots/v0.1.0/hero_player_music.png)
 
 ## 1. Humanoid-UI-sections
 
-0. Player-window — includes DOT-MATRIX-Display-technology and 24h-clock
-1. [Playlist](docs/DETAILS_PLAYLIST.md) — One line per job/file
+0. Player-window — includes DOT-MATRIX-Display-technology, 24h-clock, infinite music generation button 
+1. [Playlist](docs/DETAILS_PLAYLIST.md) — One line per job/file. Optional: import of external streams
 2. [Models](docs/DETAILS_MODELS.md) — Model database imported from audio.cpp
 3. [Voices](docs/DETAILS_VOICES.md) — Local voice sample generation and tracking
 4. [TTS / MUSIC / SFX](docs/DETAILS_TTS_MUSIC_SFX.md) — Manually trigger generation jobs
 5. [TTSD, multi-speaker batch](docs/DETAILS_TTSD.md) — Multi-speaker-batch-processing
 6. [STT, transcription](docs/DETAILS_STT.md) — Transcription and speaker ID extraction
 7. [Auto-play Agent Session](docs/DETAILS_AUTOPLAY.md) — Auto-play DSH agent session output
-8. [Advanced (Options, Remux)](docs/DETAILS_ADVANCED.md) — import of remote advanced model options.
-9. [Settings](docs/DETAILS_SETTINGS.md) — UI/UX tuning to Your liking.
-10. [Endpoints](docs/DETAILS_ENDPOINTS.md) — Engine catalog and health.
-11. [Logs](docs/DETAILS_LOGS.md) — Diagnosis, debug.
+8. [Advanced (Options, Remux)](docs/DETAILS_ADVANCED.md) — import of remote advanced model options
+9. [Settings](docs/DETAILS_SETTINGS.md) — UI/UX tuning to Your liking
+10. [Endpoints](docs/DETAILS_ENDPOINTS.md) — Machine/IP/Port/Engine catalog and health
+11. [Logs](docs/DETAILS_LOGS.md) — Diagnosis, debug
 
-1. **Where an engine runs is the setup's choice and not a rule of this package** 
+**Where an engine runs is the setup's choice and not a rule of this package** 
    Nothing in this package is a speech engine. [audio.cpp](https://github.com/0xShug0/audio.cpp)
    is the C++ audio inference framework built on ggml, and it is what answers a request. What this package carries is
    the front-end in front of it: the panel, the endpoint registry, the queues and placement rules, the voice registry,
    the media capture, the audio store, and the four agent tools.  
-2. **Multi-node job scheduling** A dispatch answers with a row and its id, not with audio. Jobs are placed across the
+**Multi-node job scheduling** A dispatch answers with a row and its id, not with audio. Jobs are placed across the
    slots that exist: a candidate on a machine holding none of this plugin's running jobs is chosen before one on a
    machine that already holds one. Allows ASYNC job processing across multiple CPUs/GPUs in the LAN. 
-3. **What you can ask it for**
+**What you can ask it for**
    1) A single-voice take in a registered voice — `audio_render {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}`.
    2) A music or effect take from a prompt, with a length named or not —
       `audio_render {kind:"generate", model:"…", text:"rain on a tin roof", duration_seconds:5}`. A take that names no
       length is filled from that model's own engine record, and the row says which record it came from.
-   3) A multi-voice scene, rendered as bounded takes across the endpoints —
-      `audio_render {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}`. A line with no voice is
-      the model inventing that speaker, not a missing field.
-   4) A plan for a scene — `audio_render {kind:"plan", dialogue:[…{}]}` — which works the scene out, answers what it
-      would do, and dispatches nothing.
-   5) A transcription of a file the plugin can read, or the same file read through the speaker-tagged chain, which
-      separates the speakers and transcribes each one — `{kind:"transcribe", file_path:"/absolute/a.wav", model:"<one this slot serves>"}`
-      and `{kind:"analysis", file_path:"/absolute/a.wav", model:"<one this slot serves>"}`. Both name the model they want
-      the lane to transcribe with: the tool refuses either one without it and points at
-      `audio_status {what:"slot_models", fn:"stt"}`.
-   6) Speaker separation, voice conversion and stem work, as named task rows. Voice conversion is a kind of its own: 
-      `audio_render {kind:"convert", source_job_id:"<a row that holds the audio>",
-      target_voice:"<a registered voice>", model:"<one this slot serves>"}` renders a take the length of its source in
-      that voice. 
-   7) A preset under `texts/presets/<folder>/`: the prompt, the side its folder names, and the model that preset was
+   3) A multi-voice scene, rendered as bounded takes across the "TTSD" endpoints —
+      `audio_render {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}`. 
+   5) A transcription, which separates the speakers and transcribes each one.
+   6) A preset under `texts/presets/<folder>/`: the prompt, the side its folder names, and the model that preset was
       last run with, reported back on the same listing that offered it.
-   8) A voice registered from a WAV the plugin can read, and the panel's own auto-generation chain, armed with
-      `audio_control {what:"auto_gen", mode:"on"}` and started by the next press of a generation control.
-4. **A voice registry that belongs to this front-end.** Voices are registered from a WAV the plugin can read, the
+**A voice registry that belongs to this front-end.** Voices are registered from a WAV the plugin can read, the
    plugin transcribes the sample for its reference text with the transcription model the caller names - `register` refuses
    without one — and a clone-sample is staged to the target engine before it is asked
    for; the authority for that number is `audio_voices {what:"list"}`.
-5. **An endpoint registry** Which slot exists, whether it answers, what it serves, what it is
+**An endpoint registry** Which slot exists, whether it answers, what it serves, what it is
    holding: read with `endpoint_registry`, `endpoint_health`, `endpoint_models`, `queue_status`. 
-6. **Four agent tools, each switchable on its own in DSH Plugin config.** A call needs no model name and no endpoint id: this front-end
+**Four agent tools, each switchable on its own in DSH Plugin config.** A call needs no model name and no endpoint id: this front-end
    places the job and refuses what it cannot place.
-7. **optional: Media capture through yt-dlp.** 
+**optional: Media imports with yt-dlp.** 
 
 ## 2. Architecture
 
-1. **The shape of it.** The plugin is a front-end and a scheduler. The audio work happens on machines it calls
-   slots — each one an audio.cpp engine reached over the network, each with its own model catalog. A dispatch names a
-   model and a lane; the plugin places the job on a slot that lists that model, the engine loads what it does not
-   already have, renders, and the finished row carries back which slot served it, which model ran, and the timing
-   split into load and generation. Nothing here renders on the machine the panel runs on, and nothing here starts an
-   engine or downloads a model.
+1. **Async by construction.** Every dispatch returns a row, not a sound. Rows queue per slot, a row names the slot
+   it is waiting on, and a row no slot can take says so instead of failing quietly. 
 
-2. **Async by construction.** Every dispatch returns a row, not a sound. Rows queue per slot, a row names the slot
-   it is waiting on, and a row no slot can take says so instead of failing quietly. A page can hold ten requests in
-   flight and read each one when it finishes. A two-minute render on one node never blocks a five-second one on
-   another. Waits are named rather than mysterious — `endpoint_wait`, `machine_wait`, `lane_wait` and the rest, each
-   with a one-word reason — and `queue_status` answers what every slot and every machine is holding right now.
-
-3. **How realtime is reached.** Every engine this plugin drives holds one model at a time (`max_loaded_models=1`),
-   so throughput does not come from more threads on one box. It comes from several boxes, each warm on the model the
-   next job needs, and from placement that prefers a machine holding none of the plugin's running jobs over one that
-   already holds one, under a soft cap per host — two jobs per machine by default, one switch in Settings and one
-   environment variable above it. A node that keeps a small model resident answers in seconds; a large model is a
-   minutes-long job and can run on another node while the small one keeps serving. The measured ratios are in
-   [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv) and [docs/MODELS_TABLE.md](docs/MODELS_TABLE.md).
-
-4. **CPU nodes, GPU nodes, and Vulkan on an integrated GPU.** A node is only a machine with an engine built for the
+2. **CPU nodes, GPU nodes, or integrated GPU.** A node is only a machine with an engine built for the
    hardware it has — the same source, the same verbs, the same catalog shape. A CPU build needs no graphics hardware
-   at all and renders several times slower than the take is long. A **Vulkan** build is the same engine with the same
-   verbs and the same models, and the same work lands far faster; that build is a compile flag (`GGML_VULKAN=ON`), not
-   a different product. An integrated GPU is a real option here, not only a discrete card: the model catalog, the
-   quant a package is stored in and the VRAM it has to fit into are the whole question. Measured on 2026-11-15 on the
-   GPU node in this setup: an amdgpu device with 8 GiB of VRAM (`mem_info_vram_total` answers 8 573 157 376 B),
-   built with Vulkan, and the work that was ever run on it is recorded in
-    [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv) — whether that slot answers today is a read, not a line
-    in this page. What it cannot hold is a model larger than its
-   VRAM — which is what the smaller quantizations of the same package are for. Multi-speaker dialogue on that card is
-   not usable, single-voice work is; that is in the agent guide's settled list and it is a measured limit, not a
-   preference.
+   at all and renders several times slower than the take is long. [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv)
 
-5. **What a set costs: RAM, VRAM, disk.** The numbers below are **package file sizes measured 2026-11-15** across
-   the model directory this setup uses — 62 package directories, 247 GiB in total. They are sizing guidance. They do
-   not name a model to use: the model a job asks for is read from the engine's own catalog at dispatch time. One rule
-   covers all three tiers, and it is the one people miss: **an engine holds one model at a time, so what a node needs
-   is sized by the largest single package it is asked to load, not by the sum of what is on disk.** Measured the same
-   day: a CPU engine holding a 3.4 GB package resident reported 3.4 GB and 3.7 GB of RSS — a resident footprint close
-   to the file size, plus a few hundred MB of graph and decoder overhead.
+3. **What a set costs: RAM, VRAM, disk.** 
 
-   **a. Simple, fast, no clone — text-only TTS and STT.** Two small packages. In that directory the smallest served
+   **a. Simple, fast, no clone — text-only TTS and STT.** Two small audio.cpp packages. The smallest served
    speech-synthesis packages are 181 MB, 288 MB and 343 MB, and the smallest transcription packages are 39 MB, 160 MB
    and 242 MB. **Disk: under 1 GB. RAM: 2 GB carries either one with headroom, 4 GB is comfortable.** VRAM: all of
-   them fit an 8 GiB integrated GPU with a wide margin, and this is the tier where a small GPU node gives answers
-   faster than the audio is long.
+   them fit an 8 GiB integrated GPU with a wide margin.
 
    **b. Cloning in good quality, plus music.** An effect-and-music pair plus a cloning package. Measured: the two
    Stable Audio 3 packages are 3.4 GB (Medium) and 1.6 GB (Small SFX); the Qwen3 TTS cloning packages in that
    directory are 2.7 GB, 4.0 GB and 6.6 GB by variant. **Disk: 8 GB to 12 GB for the set. RAM: 8 GB to 16 GB, sized
    by the largest single package you intend to load, not by the set.** VRAM: on 8 GiB each of these loads at q8
-   except the 6.6 GB variant, which is at the edge and wants a smaller quant.
+   except the 6.6 GB variant. GTT (Vulkan mapped RAM) works, too. 
 
    **c. TTSD multi-speaker, music and conversion — a working set of about ten packages.** Measured in that directory:
    the multi-speaker dialogue packages are 9.7 GB and 31.8 GB; the voice-conversion packages are 1.2 GB and 3.0 GB;
@@ -127,7 +78,7 @@ rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero_
    build, while a 12 GB build runs on a 16 GB node. VRAM: an 8 GiB integrated GPU is a stay-in-the-small-quants node —
    neither dialogue build fits it, the 1.2 GB and 3.0 GB conversion packages do, and that is a good use of such a node.
 
-6. **What a generation costs against the clock, measured.** Three real rows from this setup's own records, on the
+4. **What a generation costs against the clock, measured.** Three real rows from this setup's own records, on the
    two kinds of machine it runs on. The number is **engine wall-time per second of audio the take produced**, with the
    load leg excluded — that leg is a separate key on the same row, and it is seconds for a small package and tens of
    seconds for a large one.
@@ -148,23 +99,21 @@ rendering it, and the rows under it are real rows](docs/screenshots/v0.1.0/hero_
    before it dispatches, and it names where the number it used came from. The per-model records are
    [docs/MODELS_TEST_MATRIX.csv](docs/MODELS_TEST_MATRIX.csv) and [docs/MODELS_TABLE.md](docs/MODELS_TABLE.md).
 
-7. **Model files on a network share: out of scope here, easy for you to add.** The plugin never touches the model
+5. **Model files on a network share: out of scope here, easy for you to add.** The plugin never touches the model
    directory — it names a model id and each engine opens its own path. So the packages can live on a local disk or on
    one share that every node mounts, and nothing in this package changes for that; it is the cheapest way to keep a
    single copy of a large catalog in a multi-node setup. What it costs is on the network, not in this plugin: a model
    load reads the whole file, so a link slower than a local disk shows up as a longer load time on the row, which is
    exactly where you would see it. Measured 2026-11-15 on the share this setup uses: a 1.6 GB package loaded in 0.9 s
-   to 2.5 s.
+   to 2.5 s. Your agent can help ;D
 
-8. **A node, in the plugin's own words.** A node is a slot in the endpoint registry: an address, a lane, a health
-   read and a catalog read. `endpoint_add` wires one, `endpoint_models` reads what it serves, `endpoint_health` asks
-   whether it answers, and a dispatch can be pinned to it — a pin is evaluated alone and never falls back to another
-   slot. Which slot is primary, which is paused or held, and what any of them currently serves is read in the session
-   that needs it, never carried in a document.
-
-## 3. What changed recently, and what is planned see [CHANGELOG.md](CHANGELOG.md)
+## 3. What changed recently
+   see [CHANGELOG.md](CHANGELOG.md)
 
 ## 4. Quickstart
+   point Your agent at [AGENTS.md](AGENTS.md) 
+
+## 5. Slowstart
 
 1. **What it needs.** A DSH harness at `>=0.2.2-rc.1` (`engines.dsh` in `package.json`) with a profile this bundle is
    mounted into. `@deepseek-ai/cordis ~4.1.0` as a peer dependency and `@deepseek-ai/schemastery ~3.19.0` as the one
@@ -242,7 +191,7 @@ are the measured model records; two of them are read by the host suite, so they 
 order they go in, the lengths they are asked for, and how a model is chosen for each from the engine's catalog rather
 than from that file.
 
-## 5. Disclaimer, thanks, licence
+## 6. Disclaimer, thanks, licence
 
 1. **Disclaimer.** This is one person's hobby project that happens to run every day. It carries no warranty and no
    support promise. It is not a speech engine, not a service, and not a hosted product: it is the front-end in front of

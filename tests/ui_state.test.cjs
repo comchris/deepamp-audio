@@ -344,6 +344,10 @@ let saveAnswer830 = null;
 // non-voice path), so setting it here changes no answer any older block reads.
 let loadAnswer836 = null;
 let taskCatalog602 = null;
+// T-924 (2026-11-26): what a NAMED slot answers to `get_models?fn=&id=` — the read the host added with T-922.
+// null means the mock has no such answer and the URL is answered like a plain primary read; a T-924 block sets it
+// to that slot's own rows, and the mock stamps `served_by` on them exactly as the host does.
+let slotCatalog924 = null;
 // T-713 switches for the session-binding block below: the two routes that block reads are answered here and nowhere
 // else in this file. Both defaults are behaviour-neutral for every older block - no other block seeds a slot that
 // names a session, and an unanswered last_agent_message was already a no-op for the auto-speak poll (the fallback
@@ -397,6 +401,27 @@ function host(url, opts) {
   else if (/last_agent_message/.test(u)) body = (typeof lamAnswer713 === 'function') ? lamAnswer713(JSON.parse(String((opts && opts.body) || '{}'))) : { ok: false, error: 'nothing to speak' };
   else if (/get_endpoints/.test(u)) body = { tts: { url: 'http://cpu1.test:8963', route: 'speech' }, stt: { url: 'http://cpu1.test:8962', route: 'speech' } };
   else if (/server_status/.test(u)) body = { tts: { ok: true, loaded_model: 'm1' }, stt: { ok: true } };
+  else if (/get_models/.test(u) && slotCatalog924 && /[?&]id=/.test(u)) {
+    // T-924: the NAMED-slot read, in the host's own answer shape — rows stamped with served_by, an as_of, and the
+    // fleet block beside the list. This branch only answers for a block that set slotCatalog924; every other block
+    // keeps the answer below byte for byte.
+    const m924u = /[?&]id=([^&]*)/.exec(u);
+    const sid924 = m924u ? decodeURIComponent(m924u[1]) : 'e-1';
+    const m924f = /[?&]fn=([^&]*)/.exec(u);
+    body = {
+      ok: true, id: sid924, fn: m924f ? m924f[1] : 'tts',
+      models: slotCatalog924.map(function (r924) { return Object.assign({}, r924, { served_by: sid924 }); }),
+      served_by: sid924, as_of: 1731000000000, stale: false,
+      fleet: {
+        slots: [
+          { id: 'primary', url: 'http://cpu1.test:8963', enabled: true, held: false, route: 'speech', declared: 2, models_source: 'engine', models_at: 0 },
+          { id: sid924, url: 'http://cpu2.test:8963', enabled: true, held: false, route: 'speech', declared: slotCatalog924.length, models_source: 'engine', models_at: 1731000000000 },
+        ],
+        note: 'the list above is one slot: ' + sid924 + ' declares ' + slotCatalog924.length
+          + ' model(s) this list does not carry \u2014 read that slot with get_models?fn=' + (m924f ? m924f[1] : 'tts') + '&id=' + sid924,
+      },
+    };
+  }
   else if (/get_models/.test(u)) body = { models:
     // T-229: fn=task answers the tool half of the catalog (TASK_ALLOW, lib/index.js:4217)
     // so the tool kinds are selectable. The tts/stt answers keep their exact contents.
@@ -2358,14 +2383,15 @@ let shim_rt = null;
   };
   // T-654 (2026-10-26) re-ordered this block: the batch press is inert on a lane that is out of placement, so the
   // batch half is proven while the lane is STILL in play, and the inert half is proven after the disable press.
+  // T-921 CONTRACT CHANGE (operator, 2026-11-25: "the 'batch' option is to complicated... keep it in code,
+  // but set it to true for all TTS endpoints, remove the buttons"). This block used to press the batch
+  // control and prove the body it sent and the confirmation it printed. There is no batch press to make:
+  // the flag is a host-side value that is always true. What is proven here now is the absence — no row of
+  // either lane offers one — and the state press below is untouched.
   const r4 = render195();
-  const batchBtn = epActLbl(rowOf(r4, 'TTS2'), /^batch on$/).pop();
-  if (batchBtn) batchBtn.props.onClick();
-  await flush();
-  check('T-195: batch toggle -> POST endpoint_update {fn,id,batch_allowed:false}',
-    lastBody(/endpoint_update/) === '{"fn":"tts","id":"e-1","batch_allowed":false}', lastBody(/endpoint_update/));
-  check('T-195: the batch confirmation names the flag and the value the host stored',
-    /e-1 batch_allowed:false/.test(String(toastText())), toastText());
+  const batchBtn921 = epActLbl(rowOf(r4, 'TTS2'), /^batch (on|off)$/).pop();
+  check('T-921: a TTS row offers no batch press at all — the flag left the row, not just the colour',
+    batchBtn921 === undefined, batchBtn921 ? batchBtn921.props.children : 'no batch control');
   const r5 = render195();
   const disableBtn = epActLbl(rowOf(r5, 'TTS2'), /^enabled$/).pop();
   if (disableBtn) disableBtn.props.onClick();
@@ -2375,14 +2401,17 @@ let shim_rt = null;
   check('T-195: the disable confirmation names the flag the host actually changed',
     /e-1 disabled/.test(String(toastText())), toastText());
   const r5b = render195();
-  const heldBatch654 = epActLbl(rowOf(r5b, 'TTS2'), /^batch off$/).pop();
+  const heldBatch654 = epActLbl(rowOf(r5b, 'TTS2'), /^batch (on|off)$/).pop();
   const t654_updBefore = callsOf(/endpoint_update/).length;
   if (heldBatch654) heldBatch654.props.onClick();
   await flush();
-  check('T-654 (the operator\u2019s ruling of 2026-10-26): on a lane taken out of placement the batch control is THERE, DISABLED, and its press sends NOTHING \u2014 the stored value survives the click',
-    !!heldBatch654 && heldBatch654.props.disabled === true && callsOf(/endpoint_update/).length === t654_updBefore,
-    { label: heldBatch654 ? ownText(heldBatch654) : null, disabled: !!(heldBatch654 && heldBatch654.props.disabled),
-      updates_after_inert_press: callsOf(/endpoint_update/).length - t654_updBefore });
+  // T-921 CONTRACT CHANGE (2026-11-25): this check proved the operator's ruling of 2026-10-26 that a batch
+  // control on a lane out of placement is inert and keeps its stored value. The control is gone from every
+  // row, so there is nothing left to draw inert and no value on the row to keep — which is the stronger
+  // form of the same ruling: a held lane cannot claim a batch setting at all.
+  check('T-654 (the operator\u2019s ruling of 2026-10-26, closed by T-921): on a lane taken out of placement there is NO batch control to be inert, and a press on that row sends no batch verb',
+    !heldBatch654 && callsOf(/endpoint_update/).length === t654_updBefore,
+    { label: heldBatch654 ? ownText(heldBatch654) : null, updates_after_press: callsOf(/endpoint_update/).length - t654_updBefore });
   const r6 = render195();
   const modelsBtn = epActLbl(rowOf(r6, 'TTS2'), /^read now$/).pop();
   if (modelsBtn) modelsBtn.props.onClick();
@@ -2440,6 +2469,17 @@ let shim_rt = null;
   await flush();
   check('T-195: add endpoint -> POST endpoint_add {fn,url,route} with the url TRIMMED and nothing else (no client-side validation)',
     lastBody(/endpoint_add/) === '{"fn":"tts","url":"http://cpu2.test:8964","route":"speech"}', lastBody(/endpoint_add/));
+  // T-925 (2026-11-26, the fresh-install report item 10 third bullet, the operator: "endpoint_add route default
+  // unexplained"). The document half was built by T-911; this pins the half at the control: the route select says
+  // what each value is and that an endpoint naming nothing gets speech.
+  const routeSel925 = r9.filter(function (e) {
+    return e.type === 'select' && /which API this endpoint serves/.test(String((e.props || {}).title || ''));
+  }).pop();
+  const routeTip925 = String(((routeSel925 || {}).props || {}).title || '');
+  check('T-925: the add-endpoint route control names both routes and says that naming nothing gets speech',
+    /speech is the single-voice render path/.test(routeTip925) && /tasks is the engine-s tool-job path/.test(routeTip925)
+      && /what an endpoint that names nothing gets/.test(routeTip925) && /not off its version/.test(routeTip925),
+    routeTip925 || 'no route control on the add form');
   check('T-195: a registered endpoint shows up as the next slot (TTS3) on the next read',
     epRowsIn(render195()).map(ownText).some(function (t) { return /TTS3/.test(t) && /cpu2\.test:8964/.test(t); }),
     epRowsIn(shim.rt.created).map(ownText));
@@ -3034,8 +3074,11 @@ let shim_rt = null;
   check('T-199: every one of the four endpoint rows carries its own webui control (the missing button the user reported)',
     t99_webuis.length === 4 && t99_webuis.every(function (a) { return /^http:\/\//.test(String(a.props.href || '')) && a.props.target === '_blank'; }),
     t99_webuis.map(function (a) { return a.props.href; }));
-  check('T-199: the batch control exists on the TTS rows only (batch is a tts-only lane)',
-    epActLbl(t99_re4, /^batch (on|off)$/).length === 2 && epActLbl(rowOf(t99_re4, 'STT2'), /^batch (on|off)$/).length === 0,
+  // T-921 CONTRACT CHANGE (2026-11-25, the operator's word quoted at the T-195 block above): this check
+  // used to prove the batch control was tts-only. There is no batch control on any row now, so the check
+  // proves that — on both lanes.
+  check('T-199 (T-921): no endpoint row of either lane carries a batch control',
+    epActLbl(t99_re4, /^batch (on|off)$/).length === 0 && epActLbl(rowOf(t99_re4, 'STT2'), /^batch (on|off)$/).length === 0,
     [epActLbl(t99_re4, /^batch (on|off)$/).map(ownText), epActLbl(rowOf(t99_re4, 'STT2'), /^batch (on|off)$/).map(ownText)]);
   // T-300 U-7 CONTRACT CHANGE (user request 2026-10-12: "enabled and disabled + batch allowed should be
   // 2 buttons, pause is not needed"). The pause/resume control is gone from every row, so the verbs a row
@@ -3651,8 +3694,9 @@ let shim_rt = null;
     && t204_btnLbl(t204_r.filter(function (e) { return !e.props || e.props.className !== 'audio-play-lib-refresh'; }), /^read now$/).length === 4,
     [t204_btnLbl(t204_r, /^(pause|resume)$/).length, t204_btnLbl(t204_r, /^(enabled|disabled)$/).length,
      t204_btnLbl(t204_r.filter(function (e) { return !e.props || e.props.className !== 'audio-play-lib-refresh'; }), /^read now$/).length]);
-  check('T-204: the batch control exists on the two TTS rows only (STT has no batch lane)',
-    t204_btnLbl(t204_r, /^batch (on|off)$/).length === 2, t204_btnLbl(t204_r, /^batch (on|off)$/).map(ownText));
+  // T-921 CONTRACT CHANGE (2026-11-25): the batch control is off every row, on both lanes.
+  check('T-204 (T-921): no row of either lane carries a batch control',
+    t204_btnLbl(t204_r, /^batch (on|off)$/).length === 0, t204_btnLbl(t204_r, /^batch (on|off)$/).map(ownText));
   check('T-204: every row links to its own engine webui',
     t204_byClass(t204_r, 'audio-play-ep-webui').length === 4
     && t204_byClass(t204_r, 'audio-play-ep-webui').map(function (e) { return e.props.href; }).join(',') === 'http://cpu1.test:8963,http://cpu2.test:8963,http://cpu1.test:8962,http://cpu2.test:8962',
@@ -5620,7 +5664,10 @@ let shim_rt = null;
         t235_shape = false; t235_why.push(g.fn + ' registry row ' + i + ' controls: ' + c.join(','));
       }
     });
-    const want = (g.fn === 'tts') ? 1 : 0;
+    // T-921 CONTRACT CHANGE (2026-11-25): the per-row batch control count used to be the one difference
+    // between a tts row and an stt row. The control is gone from both, so the shape check now demands
+    // zero on every row of every group — which is a stricter form of the same claim: one set per group.
+    const want = 0;
     const batch = ctrls.map(function (c) { return c.filter(function (x) { return /^batch /.test(x); }).length; });
     if (!batch.every(function (n) { return n === want; })) { t235_shape = false; t235_why.push(g.fn + ' batch per row: ' + batch.join(',')); }
   });
@@ -6527,6 +6574,21 @@ let shim_rt = null;
       && Object.keys(JSON.parse(t242_pinBody)).join(',') === 'task_kind,model,file_path,endpoint_id',
       [t242_autoBody, t242_pinBody]);
 
+    // T-923 (2026-11-25, the operator, verbatim: "if i select a preset from the eject-music-prompt selection,
+    // the model selected does switch in the TTS section - but the model displayed by player is the previously
+    // used one - iirc that is an old todo ?!?"). It is (item 58, closed by T-882), and that card works for the
+    // door it was written against — a hand pick of a MODEL. This fixture has moved the KIND only, which is also
+    // what a preset-routed pick does, and that door never re-bound the state the player line followed. So the
+    // line is asserted against what the picker shows: the panel is on a tool kind here, no model was picked,
+    // and the readout must name the model the tool picker is on — not the voice model from the mount case.
+    const t923_modelSel = shim.rt.created.filter(function (e) {
+      return e.type === 'select' && /^model \u2014 filtered by the job kind/.test(String(e.props.title || ''));
+    }).pop();
+    const t923_shown = String((t923_modelSel || {}).props.value || '');
+    check('T-923: with a tool kind selected and no model picked, the player readout opens with the model the picker shows (it followed the last control pressed, not the panel)',
+      !!t923_shown && readoutText().indexOf('selected \u00b7 ' + t923_shown) === 0,
+      { shown_in_picker: t923_shown || '(no model select found)', readout: String(readoutText() || '').slice(0, 90) });
+
     // One lane state per fn: the pick made in front of a tool kind is the pick the render
     // verb sends too, and changing the kind does not silently change it.
     const t242_rRender = await t242_kind('tts');
@@ -6550,6 +6612,84 @@ let shim_rt = null;
     check('T-242: the tool lane pin added NO timer — the intervals are still exactly the status poll, the voice loop and the idle clock tick (T-677)',
       intervals.length === 3 && intervals.map(function (t) { return t.ms; }).sort(function (a, b) { return a - b; }).join(',') === '1000,5000,15000',
       intervals.map(function (t) { return t.ms; }));
+
+    // T-924 (the operator, verbatim: "The available ui-selections should actually never result from a single
+    // endpoint's feature set as user might want to set other endpoint ... ---> convert into an overall fix on all
+    // fronts and do so"). This is the panel half of T-922 measured end to end in the live panel: the music kind
+    // stays on screen when the slot this panel read has no generator; the control beside the model select names the
+    // OTHER registered slot of this lane and what it declares; one press reads that slot through the host's own
+    // verb (`get_models?fn=&id=`), lands its rows labelled with the slot they came from, and moves the lane pin to
+    // it in the same act — a model only that slot declares can only be run there. The fixture reuses the e-1 entry
+    // this block registered for T-242, narrows the primary's tool list to a separator with no generator, and lets
+    // e-1 answer one generator of its own.
+    const t924_taskBefore = taskCatalog602, t924_slotBefore = slotCatalog924;
+    // The state this sub-block moves is the state the blocks after it inherit (one live panel, one store), so the
+    // kind, the lane pick and the model lists are put back exactly as they were found — the same hygiene the
+    // T-602 block applies. Nothing about the pins below depends on the order.
+    const t924_kindBefore = String(((render195().filter(function (e) { return e.type === 'select' && e.props.className === 'audio-play-kind'; })[0] || {}).props || {}).value || 'tts');
+    const t924_laneBefore = String(((laneSelectsIn(render195())[0] || {}).props || {}).value || 'auto');
+    taskCatalog602 = [{ id: 'bs_roformer', loaded: false, task: 'sep', family: 'bs_roformer', quant: 'f16' }];
+    slotCatalog924 = [{ id: 'e1_musicgen', loaded: false, task: 'gen', family: 'stable_audio' }];
+    await t242_kind('sep');
+    {
+      const rr924 = render195();
+      const rb924 = rr924.filter(function (e) { return e.type === 'button' && e.props.title === 'reload the tool catalog'; })[0];
+      if (rb924) rb924.props.onClick();
+      await flush();
+    }
+    const r924a = await t242_kind('gen');
+    const sr924 = r924a.filter(function (e) { return e.type === 'select' && e.props.className === 'audio-play-slotread'; })[0];
+    const sr924Opts = sr924 ? r924a.filter(function (e) {
+      return e.type === 'option' && typeof (e.props || {}).value === 'string' && /^e-\d+$/.test(String(e.props.value))
+        && /read e-1/.test(String((e.props || {}).children || ''));
+    }) : [];
+    const kind924a = r924a.filter(function (e) { return e.type === 'select' && e.props.className === 'audio-play-kind'; })[0];
+    check('T-924: a kind this slot has no model for stays the kind on screen, and the control beside the model select names the other registered slot with what it declares',
+      !!kind924a && String(kind924a.props.value || '') === 'gen' && !!sr924 && sr924Opts.length === 1
+        && /declares 1 model/.test(String(sr924Opts[0].props.children || '')),
+      { kind: String((kind924a || {}).props.value || ''), read_control: !!sr924, options: sr924Opts.map(function (o) { return String(o.props.children); }) });
+    // The press: one read of that slot, and the lane pin moves with it.
+    const calls924Before = callsOf(/get_models/).length;
+    if (sr924) sr924.props.onChange({ target: { value: 'e-1' } });
+    await flush(); await flush();
+    const r924b = render195();
+    const calls924 = callsOf(/get_models/).slice(calls924Before);
+    const model924b = r924b.filter(function (e) { return e.type === 'select' && e.props.className === 'audio-play-model'; })[0];
+    const optLines924 = r924b.filter(function (e) {
+      return e.type === 'option' && String((e.props || {}).value || '') === 'e1_musicgen';
+    }).map(function (e) { return String((e.props || {}).children || ''); });
+    const lane924b = laneSelectsIn(r924b)[0];
+    check('T-924: one press reads that slot through get_models with the id the host added (T-922), its rows are labelled with the slot they came from, and the lane pin moves to it in the same act',
+      calls924.some(function (c) { return /get_models\?fn=(task|tts)&id=e-1/.test(String(c)); })
+        && !!model924b && String(model924b.props.value || '') === 'e1_musicgen'
+        && optLines924.length >= 1 && /read from e-1/.test(optLines924[0])
+        && !!lane924b && String(lane924b.props.value || '') === 'e-1',
+      { asked: calls924.map(function (c) { return String(c); }), selected: String((model924b || {}).props.value || ''), option: optLines924, lane: String((lane924b || {}).props.value || '') });
+    // And the job that follows is placed where the model is: the pin is in the body, not only on the control.
+    const t924_body = await (async function () {
+      render195().filter(function (e) {
+        return e.type === 'textarea' && /^prompt, e\.g\./.test(String((e.props || {}).placeholder || ''));
+      }).forEach(function (e) { e.props.onChange({ target: { value: 'a sax line for the pin test' } }); });
+      const rb = runBtn371(render195(), 'task', /^Generate \(sfx\)/);
+      if (rb) rb.props.onClick();
+      await flush();
+      return String(lastBody(/dispatch_task/) || '');
+    })();
+    check('T-924: the run that follows goes to the slot the model came from — the pin rides the body, and the model named is the one that slot declares',
+      /"endpoint_id":"e-1"/.test(t924_body) && /"model":"e1_musicgen"/.test(t924_body) && /"task_kind":"gen"/.test(t924_body),
+      t924_body.slice(0, 220));
+    // Put the panel back the way this sub-block found it: the catalogs first, then the panel's OWN refresh control
+    // so the lists it holds are the default ones again, then the lane pick and the kind. The blocks after this one
+    // run against the same live panel, and they are about other things.
+    taskCatalog602 = t924_taskBefore; slotCatalog924 = t924_slotBefore;
+    {
+      const rr924b = render195();
+      const rb924b = rr924b.filter(function (e) { return e.type === 'button' && e.props.title === 'reload the tool catalog'; })[0];
+      if (rb924b) rb924b.props.onClick();
+      await flush();
+    }
+    await t242_lane(t924_laneBefore);
+    await t242_kind(t924_kindBefore);
 
     regTts.length = 0; t242_regBefore.forEach(function (x) { regTts.push(x); });
   }
@@ -8667,8 +8807,13 @@ check('T-388 source: the navigation controls open the window with the same calls
     check('T-499: an endpoint in play says `enabled`, in the green the clock and the lamps already use (both lanes)',
       v499a.byLabel('enabled').length === 2 && v499a.byLabel('enabled').every(function (b) { return v499a.ink(b) === GREEN; }),
       v499a.words.map(function (w, i) { return w + ':' + (v499a.ink(v499a.ctl[i]) || 'default'); }));
-    check('T-499: batch allowed says `batch on`, in the same green - one green for "this is on", not a colour per control',
-      v499a.byLabel('batch on').length === 1 && v499a.ink(v499a.byLabel('batch on')[0]) === GREEN, v499a.words);
+    // T-921 CONTRACT CHANGE (2026-11-25, operator: "set it to true for all TTS endpoints, remove the
+    // buttons"). This check used to prove `batch on` carried the same green as `enabled`. There is no
+    // batch control to colour, so the claim that survives — and it is the one T-499 was really about — is
+    // that the green is not sprayed over the row: one control on the row wears it, the state control.
+    check('T-499 (T-921): no row carries a batch control, and the green is worn by exactly one control — the state',
+      v499a.byLabel('batch on').length === 0 && v499a.byLabel('batch off').length === 0
+      && v499a.ctl.filter(function (b) { return v499a.ink(b) === GREEN; }).length === 2, v499a.words);
     check('T-499: the row carries NO state chips - paused / off / no batch were dropped as the user asked',
       v499a.chips.length === 0, v499a.chips);
     check('T-499: the word names the STATE and the hover names the PRESS - `enabled` says press it to take the endpoint out of placement',
@@ -8697,26 +8842,28 @@ check('T-388 source: the navigation controls open the window with the same calls
       && /connection failures/.test(v499b.tip(v499b.byLabel('disabled')[0])),
       v499b.tip(v499b.byLabel('disabled')[0]));
     // T-654 (2026-10-26, the operator's report: "the 'batch on' buttons are currently 'green' while the 'lane is
-    // disabled' -> disabled should also disable the 'batch on'"). Ruling: inert, and the stored value kept.
-    const v654_batch = v499b.byLabel('batch on');
-    check('T-654: a lane that is out of placement does NOT show a green batch control - the control is there, grey, and DISABLED',
-      v654_batch.length >= 1 && v654_batch.every(function (b) {
-        return b.props.disabled === true && v499b.ink(b) !== GREEN;
-      }), v654_batch.map(function (b) { return ownText(b) + ':disabled=' + (b.props.disabled === true) + ':ink=' + (v499b.ink(b) || 'default'); }));
-    check('T-654: the inert control still WEARS the stored value and its hover says which value is being kept and how to get it back',
-      v654_batch.every(function (b) {
-        var t654 = String((b.props || {}).title || '');
-        return /out of placement/.test(t654) && /stored value is kept as batch on/.test(t654) && /disabled while the lane is out of placement/.test(t654);
-      }), v654_batch.map(function (b) { return String((b.props || {}).title || ''); }));
-    check('T-654: pressing an inert batch control sends NOTHING - no batch_on, no batch_off, no endpoint_update',
+    // disabled' -> disabled should also disable the 'batch on'"). Ruling then: inert, and the stored value kept.
+    // T-921 CONTRACT CHANGE (2026-11-25) took the control away, so the inert-drawing half of that ruling has no
+    // drawing left. What these checks now prove is the part that still has a subject: a held lane shows NO batch
+    // control, so it cannot claim a setting that cannot matter, even though this fixture hands the panel a
+    // batch_allowed:false from an older host; the hold is still said by one control, in one colour.
+    const v654_batch = v499b.byLabel('batch on').concat(v499b.byLabel('batch off'));
+    check('T-654 (T-921): a lane out of placement shows no batch control at all - nothing on the row claims a setting that cannot matter',
+      v654_batch.length === 0, v499b.words);
+    check('T-654 (T-921): the held row is still informed - its state control says `disabled` in the caution colour, and that is the whole of what the row says about the hold',
+      v499b.byLabel('disabled').length === 2 && v499b.byLabel('disabled').every(function (b) { return v499b.ink(b) === CAUTION; }),
+      v499b.words);
+    check('T-654 (T-921): pressing the row sends no batch verb - there is no batch press left to make',
       (function () {
         var c654u = callsOf(/endpoint_update/).length;
-        v654_batch.forEach(function (b) { if (b.props && b.props.onClick) b.props.onClick({ stopPropagation: function () {} }); });
+        v499b.ctl.forEach(function (b) { if (b.props && b.props.onClick && /^batch /.test(String(ownText(b)))) b.props.onClick({ stopPropagation: function () {} }); });
         return callsOf(/endpoint_update/).length === c654u;
       })(), [callsOf(/endpoint_update/).length]);
-    check('T-499 re-ruled by T-654 (operator word of 2026-10-26): a held endpoint whose batch is still allowed still says `batch on` \u2014 but DISABLED, and it borrows no green',
-      v499b.byLabel('batch on').length === 1 && v499b.byLabel('batch on')[0].props.disabled === true
-      && v499b.ink(v499b.byLabel('batch on')[0]) !== GREEN, v499b.words);
+    // T-921: the sentence this check carried ("a held endpoint whose batch is still allowed still says
+    // `batch on` - but DISABLED") has no subject left. The word itself is what is checked now: no row of
+    // a held lane prints a batch word in any ink, because the value is not a state a row can wear.
+    check('T-499 re-ruled by T-654, and by T-921: a held endpoint prints no batch word in any ink',
+      v499b.byLabel('batch on').length === 0 && v499b.words.join(',').indexOf('batch') < 0, v499b.words);
     check('T-499: and no chip came back to explain the hold', v499b.chips.length === 0, v499b.chips);
 
     // The same word when a PERSON applied the hold - the difference is the sentence, not the label.
@@ -8728,29 +8875,27 @@ check('T-388 source: the navigation controls open the window with the same calls
       && !/the plugin took this endpoint/.test(v499c.tip(v499c.byLabel('disabled')[0])),
       v499c.tip(v499c.byLabel('disabled')[0]));
 
-    // Batch refused ON A LANE THAT IS IN PLAY: the control names its own state, and a state that is OFF borrows no colour.
-    // T-654 needed the in-play case proven on its own merits, so the hold is lifted for this view.
+    // A host that still reports the batch flag false, on a lane that IS in play. Before T-921 this view
+    // proved the refused state: the word `batch off`, the ordinary ink, and a hover offering the press. The
+    // flag can no longer be false through any door of the host; this fixture can still hand it over (an
+    // older host, an older state file), and the panel's answer is that it renders no control for it.
     primaryBatchOff499 = true; primaryDisabled499 = false;
     primaryHeldBy503 = ''; primaryHoldReason503 = '';
     const v499d = await t499_view();
-    check('T-499: batch refused says `batch off` in the ordinary ink - the user\u2019s "batch off = grey", and no chip next to it',
-      v499d.byLabel('batch off').length === 1 && v499d.ink(v499d.byLabel('batch off')[0]) !== GREEN
-      && v499d.ink(v499d.byLabel('batch off')[0]) !== CAUTION && v499d.chips.length === 0
-      && v499d.byLabel('batch off')[0].props.disabled !== true,
-      { words: v499d.words, ink: v499d.ink(v499d.byLabel('batch off')[0]), chips: v499d.chips });
-    check('T-499: the batch hover still says what the press does, because the label now names the state instead of the action',
-      /batch parts are refused here/.test(v499d.tip(v499d.byLabel('batch off')[0]))
-      && /Press to allow them/.test(v499d.tip(v499d.byLabel('batch off')[0])),
-      v499d.tip(v499d.byLabel('batch off')[0]));
-    // T-654: the SAME refused value on a lane that is out of play says the inert sentence instead of offering a
-    // press it cannot make.
+    check('T-499 (T-921): a host that still reports the batch flag false gets no batch control and no chip — the panel does not render a state it cannot act on',
+      v499d.byLabel('batch off').length === 0 && v499d.byLabel('batch on').length === 0
+      && v499d.chips.length === 0 && v499d.words.join(',').indexOf('batch') < 0,
+      { words: v499d.words, chips: v499d.chips });
+    check('T-499 (T-921): and the row carries no batch hover either — the hover count went DOWN with the control, and the tooltips ratchet holds',
+      v499d.ctl.filter(function (b) { return /batch/.test(String(ownText(b)) + ' ' + v499d.tip(b)); }).length === 0,
+      v499d.ctl.map(function (b) { return ownText(b); }));
+    // T-654: the same refused value on a lane that is out of play — nothing to make inert.
     primaryDisabled499 = true;
     primaryHeldBy503 = 'operator'; primaryHoldReason503 = 'taken out of placement by hand';
     const v499dheld654 = await t499_view();
-    check('T-654: a refused batch on a held lane wears the same stored word, is DISABLED, and its hover says which value is being kept',
-      v499dheld654.byLabel('batch off').length === 1 && v499dheld654.byLabel('batch off')[0].props.disabled === true
-      && /stored value is kept as batch off/.test(v499dheld654.tip(v499dheld654.byLabel('batch off')[0])),
-      v499dheld654.tip(v499dheld654.byLabel('batch off')[0]));
+    check('T-654 (T-921): a refused batch on a held lane is not drawn at all — there is no stored value on the row to keep',
+      v499dheld654.byLabel('batch off').length === 0 && v499dheld654.words.join(',').indexOf('batch') < 0,
+      v499dheld654.words);
     primaryDisabled499 = false;
 
     // A hold a PERSON applied: the same word as any other hold, the caution colour, and a hover that says who
@@ -8772,10 +8917,13 @@ check('T-388 source: the navigation controls open the window with the same calls
       intervals.length === t499_intervals, intervals.map(function (x) { return x.ms; }));
 
     const t499Src = require('fs').readFileSync(TARGET, 'utf8');
-    check('T-499 source: the two state colours are named once, each defined from something the panel already had, and read by only the two state controls',
+    // T-921 CONTRACT CHANGE (2026-11-25): the green was read by three places — its definition, the state
+    // control and the batch control. The batch control is off the row, so the count is two. The claim this
+    // check exists for is unchanged and now tighter: the green is named once and read by one control.
+    check('T-499 source (T-921): the two state colours are named once, each defined from something the panel already had, and the green is read by the state control alone',
       t499Src.indexOf('var EP_ON499 = CLOCK_LIT300;') >= 0
       && t499Src.indexOf('var EP_OFF499 = "#d29922";') >= 0
-      && (t499Src.split('EP_ON499').length - 1) === 3
+      && (t499Src.split('EP_ON499').length - 1) === 2
       && (t499Src.split('EP_OFF499').length - 1) === 2,
       { on_uses: t499Src.split('EP_ON499').length - 1, off_uses: t499Src.split('EP_OFF499').length - 1 });
     check('T-499 source: the caution colour is not a new hex - it is the one this panel already paints in dozens of places (the colour table T-500 is asked to adopt it)',
@@ -9401,7 +9549,12 @@ check('T-388 source: the navigation controls open the window with the same calls
     // wear instead is measured off the drawing in the check below this one, against the boxes of the family they
     // joined -- so the instrument this count is for, a control escaping the box it belongs in, still has a reading
     // for these two, and a stricter one than a source scan.
-    check('T-510 source, re-pointed by T-508, T-468, T-537, T-538, T-552, T-541, T-555, T-572, T-605, T-602, T-621 item 12, T-662, T-603 and T-752 (2026-11-07, twice: the two visualizer drawing settings joined the shared box, then left it for the Visualizer table\'s own box on the operator\'s word): the harmonization STOPPED at Settings, exactly as the user scoped it — the shared box is adopted by 18 controls, and the 12px inputStyle family is still what everything outside Settings uses (37 adopts measured since T-830; the quick music dropdown is the one control that left it, and why is recorded above)',
+    // The "18 / 37" numbers are the ones this file has carried since T-830. They move to 19 / 39 with T-924
+    // (2026-11-26, the operator: "The available ui-selections should actually never result from a single
+    // endpoint's feature set…"): the new slot-read control is one more control, and it wears the SAME shared
+    // input style as its neighbours on the row rather than inventing one. Nothing about the harmonization rule
+    // moved — the counts moved because the panel gained a control, which is what these two numbers are for.
+    check('T-510 source, re-pointed by T-508, T-468, T-537, T-538, T-552, T-541, T-555, T-572, T-605, T-602, T-621 item 12, T-662, T-603 and T-752 (2026-11-07, twice: the two visualizer drawing settings joined the shared box, then left it for the Visualizer table\'s own box on the operator\'s word): the harmonization STOPPED at Settings, exactly as the user scoped it — the shared box is adopted by 19 controls, and the 12px inputStyle family is still what everything outside Settings uses (39 adopts measured since T-924 added its two slot-read controls; the quick music dropdown is the one control that left it, and why is recorded above)',
       // T-830 contract change (2026-11-13, operator: "we only need a single load field, and it should have same
       // size as the other fields above ... uniform across the different engine types"). Four per-form preset boxes
       // (two pickers, two clear selects, each with its own width in its own drawing) became TWO shared boxes used
@@ -9418,7 +9571,11 @@ check('T-388 source: the navigation controls open the window with the same calls
         // T-794 RE-POINT (2026-11-11): the auto-generation count control joined the Settings section wearing the
         // shared box exactly as its neighbours do — no width, no flex, no style of its own — so this source scan
         // reads 19 uses of it. The OUTSIDE count is what T-830 moved, for the reason named above.
-        return adopted510 === 19 && outside510 === 37
+        // T-924 RE-POINT (2026-11-26): 37 -> 39. The two slot-read controls T-924 adds (the TTS section's and the
+        // transcription section's) sit on the same rows as the selects beside them and wear exactly their style, so
+        // they join the count of controls that use the 12px input style outside Settings. The adopted-by-the-shared-
+        // box count is unchanged at 19.
+        return adopted510 === 19 && outside510 === 39
           && src510.indexOf('var selectStyle510 = settingBox510') > 0
           && src510.indexOf('var numStyle510 = settingBox510') > 0
           // The two shared preset boxes are part of the same family, which is the point of the card: the load
@@ -12463,6 +12620,12 @@ check('T-388 source: the navigation controls open the window with the same calls
   // actually asks of the host.
   {
     const savedSecs602 = Object.prototype.hasOwnProperty.call(ls.s, 'deepamp:sections') ? ls.s['deepamp:sections'] : null;
+    // T-924 fixture hygiene (said plainly, because it changes what the NEXT block starts from): this block is the
+    // one that pushes a form onto kinds the catalog has no model for, and since T-924 that state is a REAL state
+    // the panel keeps (kind kept, no model, the read named) instead of being traded away. It was leaking into the
+    // following blocks through the shared browser store. The store is saved and restored, so no later block resolves
+    // a kind this block forced.
+    const savedSel602 = Object.prototype.hasOwnProperty.call(ls.s, 'deepamp:sel') ? ls.s['deepamp:sel'] : null;
     const savedPresets602 = presetRows572.slice();
     delete ls.s['deepamp:sections'];
     presetRows572 = [{ path: '/home/deepamp-test/.dsh/deepamp-audio/texts/presets/music/deep house e-guitar.json', folder: 'presets/music',
@@ -12603,18 +12766,48 @@ check('T-388 source: the navigation controls open the window with the same calls
       // bs_roformer - rather than dropping to nothing. So "the music form has no model" is not a state this panel
       // reaches by switching kinds; the refusal below is pinned in the source, where it is the guard for a catalog
       // that answers empty at mount. The line never invents a model either way: what the hover names is always what
-      // the form actually has.
+      // the form actually has. (T-924, 2026-11-26: the state was reached by TRADING the kind for one that has a
+      // model. The trade is gone, so the form now genuinely has no model — see the re-cut check below.)
       taskCatalog602 = [];
       const ks602b = kindSwitch602();
       if (ks602b) { ks602b.props.onKindChange('vc'); await flush(); await flush(); render602(); }
       const hoverVc602 = hoverOf602(genBtn602());
       r602 = await pressGen602();
       const src602a = require('fs').readFileSync(TARGET, 'utf8');
-      check('T-602: the line never invents a model - measured, the form keeps the model it has and the hover names THAT model; the empty-catalog refusal is pinned where it is written',
-        r602.asked.length === 0 && /bs_roformer/.test(hoverVc602)
+      // T-924 CONTRACT CHANGE (2026-11-26, the operator: "it must be prevented to send the music prompts to the
+      // speech lanes on accident - bad user xp" and "make selectable even if no model found for the section"):
+      // the kind is now KEPT and the model slot is emptied, rather than a model of another kind being carried
+      // under a kind that has none. What this pin stands for is unchanged - the line never invents a model, and
+      // what the hover names is what the form actually has - and what the form actually has is now nothing.
+      // Both source pins are kept and still measured.
+      const kindVal924 = String((byClass602('audio-play-kind').pop() || {}).props.value || '');
+      const modelVal924 = String((byClass602('audio-play-model').pop() || {}).props.value || '');
+      const modelOpts924 = cur602.filter(function (e924) {
+        return e924.type === 'option' && /no model serves/i.test(String((e924.props || {}).children || ''));
+      }).map(function (e924) { return String(e924.props.children); });
+      check('T-602 (T-924 contract change): the line never invents a model - a kind with no model is KEPT, the model slot is empty instead of carrying a model of another kind, and the empty line says so; the empty-catalog refusal is pinned where it is written',
+        r602.asked.length === 0 && kindVal924 === 'vc' && modelVal924 === ''
+          && /no model/i.test(hoverVc602) && !/bs_roformer/.test(hoverVc602)
+          && modelOpts924.length >= 1
           && (src602a.match(/if \(!m602\.id\) \{/g) || []).length === 1
           && /nothing is selected in the music \/ sfx form yet[\s\S]{0,140}keeps no default of its own/.test(src602a),
-        { hover: hoverVc602.slice(0, 200), asked: r602.all });
+        { kind: kindVal924, model: modelVal924, hover: hoverVc602.slice(0, 200), empty_line: modelOpts924, asked: r602.all });
+      // T-924, the selector half of the same ruling: an unserved kind is a PICKABLE option that says what it is
+      // (before this card it was a disabled option), and picking it leaves the form on that kind.
+      const kindOpt924 = cur602.filter(function (e924b) {
+        return e924b.type === 'option' && (e924b.props || {}).value === 'vc';
+      }).pop();
+      check('T-924: a kind this slot has no model for is listed as a PICKABLE option that says so on its own line (it was a disabled option before this card)',
+        !!kindOpt924 && !(kindOpt924.props || {}).disabled && /no model on this slot/i.test(String(kindOpt924.props.children || '')),
+        kindOpt924 ? { disabled: !!kindOpt924.props.disabled, label: String(kindOpt924.props.children) } : 'no option for that kind');
+      // T-924 fixture note (said plainly, it changes what the pins below start from): the block above deliberately
+      // leaves the form on a kind the catalog has no model for, and since T-924 that is a REAL state the panel
+      // keeps instead of trading away. The preset row belongs to the generation kind, and the pins below are about
+      // the preset row — so the catalog and the kind are put back the way a person puts them back (the model
+      // catalog answers, then the kind select). No clause of those pins was changed.
+      taskCatalog602 = null;
+      const ks602c = kindSwitch602();
+      if (ks602c) { ks602c.props.onKindChange('gen'); await flush(); await flush(); render602(); }
       // The preset half: the dropdown is the host's own walk, and picking puts words in the prompt field without dispatching.
       // T-621 item 8 (operator ruling 2026-10-25 02:28 Berlin, verbatim): "eject button should be able to close the
       // menu after opening it". This press — the SECOND press on the eject in this fixture, with the row already open
@@ -12957,6 +13150,7 @@ check('T-388 source: the navigation controls open the window with the same calls
       check('T-602: the mount that drives the quick music line registered a panel at all', false, 'the client did not register');
     }
     taskCatalog602 = null;
+    if (savedSel602 === null) delete ls.s['deepamp:sel']; else ls.s['deepamp:sel'] = savedSel602;   // T-924 hygiene, see the save above
     presetRows572 = savedPresets602;
     if (savedSecs602 === null) delete ls.s['deepamp:sections']; else ls.s['deepamp:sections'] = savedSecs602;
   }

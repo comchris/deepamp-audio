@@ -30,6 +30,31 @@ the unit was restarted with the lane idle. The re-reads: the second CPU node ans
 file and stands). Both rows are re-keyed like every other row. The four assertions that read these
 rows were re-expressed with a dated `(T-878 contract change)` note, not dropped (`AGENTS.md` 8.5).
 
+**Re-read 2026-11-26 (Berlin) — the records half of `TODOS.md` part one item 41, at the operator's word.** The
+same join was run again, this time against a fresh read of the two CPU slots in play: `GET <engine>/v1/models` on
+each, captured in this package's `scratch/` as `item41_engine_models_8963_20261126.json` and
+`item41_engine_models_8962_20261126.json` (64 ids between the two). The builder is
+`scratch/item41_recut_measure_20261126.py` and the map it wrote is `scratch/item41_recut_map_20261126.csv`; the
+pre-change copies of all three records are the `.bak_20261126_pre_item41_records_pass` copies beside them. The join
+order is the engine's own: the exact id, then the engine's normalisation (`_` for `-`), then the file the row names.
+**Across all three measured records — this table, `MODEL_PROVENANCE.md` and `MODELS_TEST_MATRIX.csv` — 30 rows carry
+an id no live catalog answers: 8 of them are the same model under a spelling the engine no longer uses, and 22 name a
+file or a package no engine answers today and are carried unchanged, as the fifteen above were.** The 22 names are in
+the map file; they are not repeated here. **In this table nothing was re-keyed, and that is the measured result, not
+a decision to skip:** the two rows whose id is still live (`index_tts2`, `moss_tts_nano`) name the f16 and the bf16
+file, and those two ids serve the q8_0 files today — renaming them would attach this record's reads to packages it
+never measured. Three rows name a model no catalog answers (`higgs_tts`, `qwen3-voicedesign`, `fun_asr_nano`); they
+stay as records of the shelf. In the companion records three rows were re-keyed, in each case because the file the
+row names is the file that id serves today: `sortformer_diar` in `MODEL_PROVENANCE.md`, and `vibevoice_7b` and
+`glm_tts` in `MODELS_TEST_MATRIX.csv`; one further CSV row (`moss_ttsd`, bf16) was left and marked for the same
+reason the two rows above were left. **Two things this pass did not touch, stated so they are not looked for:** the
+preset-to-model pairings a run records, which live in the plugin's own state file and not in this repository, and
+whose split-history consequence is already written in `docs/FACTS.md`, section "The same model file answers under two
+ids on one engine"; and the two measured-rate rows in `lib/index.js` keyed on the old spelling, which were re-checked
+and left — a measured rate cannot be renamed onto a file it was not measured on, and the family row is what resolves
+today (a quant-suffixed id with no row of its own falls to the lane median, as that item states). The four
+assertions in `tests/host.test.cjs` that read these rows are untouched, and the suite was re-run green.
+
 **One operator-stated quality note, carried here because the operator said it about a row of this record
 (2026-11-16, `../TODOS.md` WM-54).** A take this lane rendered on the `glm-tts` row was judged poor by
 the operator, verbatim: "quality of the GLM-TTS take is bad, should not be a favored model currently,". It

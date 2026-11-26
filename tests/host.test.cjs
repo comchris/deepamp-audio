@@ -7165,9 +7165,15 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       // voice limit one adjustable number instead of three numbers in three places — and the guard's
       // actual job is untouched: this pin exists to prove the T-253 stage-leg chunk did NOT reach into
       // placement, the planner, the capability reader or the voice tables. It still does not.
+      // RE-POINTED 2026-11-25 (T-921 contract change): the clause below read the literal registry-load
+      // line `batch_allowed: re.batch_allowed !== false,`. The operator took the per-endpoint batch
+      // switch out of use — "keep it in code, but set it to true for all TTS endpoints, remove the
+      // buttons ... we can get rid of the risk" — and that line is now `batch_allowed: true,`. The
+      // guard's job is unchanged: it proves this chunk did not reach into placement, the planner, the
+      // capability reader or the voice tables.
       ok('T-253 (h) guard: placement, batch_allowed, the batch planner, max_frames, the capability reader, FAMILY_CAPS and BUILTIN_VOICES are untouched by this chunk - the only lines the diff adds are in the stage leg and the row view',
         /var FAMILY_CAPS = \{/.test(SRC253) && /var BUILTIN_VOICES = \{/.test(SRC253)
-        && /batch_allowed: re\.batch_allowed !== false,/.test(SRC253)
+        && /batch_allowed: true,/.test(SRC253)
         && /var MAX_DIALOGUE_SPEAKERS = 5;/.test(SRC253) && /options = \{ voice_samples: dlgSamples \};/.test(SRC253),
         { family_caps: (SRC253.match(/var FAMILY_CAPS = \{/g) || []).length, builtin: (SRC253.match(/var BUILTIN_VOICES = \{/g) || []).length });
     }
@@ -8301,10 +8307,21 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     ok('T-188: the primary url cannot be registered as a registry entry (set_endpoint owns it)',
       primE.ok === false && /primary/.test(primE.error || ''), primE);
 
-    const u1 = J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', batch_allowed: false, models: ['moss_ttsd'] }));
-    ok('T-188: endpoint_update is PARTIAL and re-sources a declared answer as operator-declared',
-      u1.ok === true && u1.endpoint.batch_allowed === false && u1.endpoint.enabled === true
+    // RE-CUT 2026-11-25 (T-921 contract change). This call used to carry `batch_allowed:false` as the
+    // second half of a partial update. The operator took that flag out of use: "keep it in code, but set
+    // it to true for all TTS endpoints, remove the buttons ... we can get rid of the risk". The PARTIAL
+    // half of the assertion is untouched — it is still about one named field changing and the rest
+    // keeping their values — and the flag half moves to the two T-921 assertions below.
+    const u1 = J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', models: ['moss_ttsd'] }));
+    ok('T-188 (T-921): endpoint_update is PARTIAL and re-sources a declared answer as operator-declared',
+      u1.ok === true && u1.endpoint.batch_allowed === true && u1.endpoint.enabled === true
       && JSON.stringify(u1.endpoint.models) === '["moss_ttsd"]' && u1.endpoint.models_source === 'operator', u1);
+    const u1b = J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', batch_allowed: false }));
+    ok('T-921: batch_allowed:false is refused BY NAME at the door — a flag that cannot be turned off is not silently defaulted',
+      u1b.ok === false && /batch_allowed is always true since T-921/.test(u1b.error || ''), u1b);
+    const u1c = J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', batch_allowed: false, models: ['qwen3-tts'] }));
+    ok('T-921: and the refusal is the WHOLE update — the other named field was not half-applied',
+      u1c.ok === false && JSON.stringify((await listE(A.api, 'tts')).endpoints[0].models) === '["moss_ttsd"]', u1c);
     ok('T-188: endpoint_update on a missing id is a state error naming the id',
       (await J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-9' }))).ok === false);
     const u3 = J(await call(A.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1' }));
@@ -8317,17 +8334,27 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
 
     await tick(80);
     const savedA = JSON.parse(A.bag.fsMap[STATE]);
-    ok('T-188: the registry persists in state.json under the additive key endpoint_registry',
+    ok('T-188 (T-921): the registry persists in state.json under the additive key endpoint_registry — with the batch flag carried as the true it now always is',
       !!savedA.endpoint_registry && savedA.endpoint_registry.tts.length === 1
-      && savedA.endpoint_registry.tts[0].id === 'e-1' && savedA.endpoint_registry.tts[0].batch_allowed === false,
+      && savedA.endpoint_registry.tts[0].id === 'e-1' && savedA.endpoint_registry.tts[0].batch_allowed === true,
       savedA.endpoint_registry && savedA.endpoint_registry.tts[0]);
     const B = mk188({ rawSeed: JSON.stringify(savedA) });
     await tick(30);
     const listB = await listE(B.api, 'tts');
-    ok('T-188: a restart restores the registry with id, flags and declared models intact',
+    ok('T-188 (T-921): a restart restores the registry with id, flags and declared models intact',
       listB.endpoints.length === 1 && listB.endpoints[0].id === 'e-1'
-      && listB.endpoints[0].batch_allowed === false && listB.endpoints[0].url === 'http://10.0.0.20:8963'
+      && listB.endpoints[0].batch_allowed === true && listB.endpoints[0].url === 'http://10.0.0.20:8963'
       && JSON.stringify(listB.endpoints[0].models) === '["moss_ttsd"]', listB.endpoints);
+    // T-921, the half the operator actually asked for: a state file that still carries the bar OFF comes
+    // back with it off — there is no bar left to have off. This is the exact fault the card names: a slot
+    // whose row read "batch on" while the flag behind it was false.
+    const OFF921 = JSON.parse(JSON.stringify(savedA));
+    OFF921.endpoint_registry.tts[0].batch_allowed = false;
+    const B921 = mk188({ rawSeed: JSON.stringify(OFF921) });
+    await tick(30);
+    const listB921 = await listE(B921.api, 'tts');
+    ok('T-921: a stored batch_allowed:false is read back as true — the hidden bar cannot survive a restart',
+      listB921.endpoints.length === 1 && listB921.endpoints[0].batch_allowed === true, listB921.endpoints);
     ok('T-188: the id sequence resumes past the restored ids (no collision)',
       (await addE(B.api, { fn: 'tts', url: 'http://10.0.0.21:8963' })).endpoint.id === 'e-2');
 
@@ -8551,8 +8578,15 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       nRows.length === 1 && nRows[0].id === n0.job_id, nRows.map(function (j) { return j.id; }));
     N.bag.release();
 
-    // ---- batch opt-out ----
-    console.log('\n--- T-188 batch_allowed: batch parts keep off, plain dispatches may still use it ---');
+    // RE-CUT 2026-11-25 (T-921 contract change). This block used to put one endpoint outside batches and
+    // assert that batch parts kept off it while a plain render still used it. The operator took the
+    // switch away: "the 'batch' option is to complicated... keep it in code, but set it to true for all
+    // TTS endpoints, remove the buttons, we can pin ttsd jobs to endpoints now, so that is actually not
+    // really needed anymore ... and we can get rid of the risk". The flag stays in the data model and the
+    // placement bars that read it stay, but nothing can set it false any more — so the honest form of
+    // this block is the inverse: the flag refuses to be turned off at both doors, and a batch is placed
+    // where it used to be refused.
+    console.log('\n--- T-921: the batch flag cannot be turned off, and a batch is placed where it used to be refused ---');
     const BB = mk188({
       voices: { tomboy2: { ref_text: 'the second reference line', ref_wav: `${SUITE_STORE}/voices/tomboy2.wav`, remote_wav: '', created: 1, source: 'test', ref_dur_s: 4, registered_remote: true } },
       voicesPayload: { voices: ['tomboy1', 'tomboy2'] },
@@ -8560,34 +8594,36 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     await tick(30);
     await call(BB.api, '/api/deepamp/get_models?fn=tts', 'GET');
     const bHolder = J(await call(BB.api, '/api/deepamp/dispatch_tts', 'POST', { fn: 'tts', model: 'moss_ttsd', text: 'holding the primary host' }));
-    await addE(BB.api, { fn: 'tts', url: 'http://10.0.0.20:8963', models: ['moss_ttsd', 'qwen3-tts'], batch_allowed: false });
-    // T-203 note: the PRIMARY is batch-barred here too. The refusal used to be forced by
-    // the primary being BUSY (busy disqualified it from placement); under T-203 busy is a
-    // wait, so the fixture bars both candidates on the flag the assertion is about. The
-    // primary is put back to its default below, before the pinned-to-primary case.
-    await call(BB.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'primary', batch_allowed: false });
+    const bAdd921 = await addE(BB.api, { fn: 'tts', url: 'http://10.0.0.20:8963', models: ['moss_ttsd', 'qwen3-tts'], batch_allowed: false });
+    ok('T-921: an endpoint_add that asks for batch_allowed:false is refused naming the flag — the door does not half-register an endpoint',
+      bAdd921.ok === false && /batch_allowed is always true since T-921/.test(bAdd921.error || ''), bAdd921);
+    await addE(BB.api, { fn: 'tts', url: 'http://10.0.0.20:8963', models: ['moss_ttsd', 'qwen3-tts'] });
+    const bUpd921 = J(await call(BB.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'primary', batch_allowed: false }));
+    const bPrimView921 = await listE(BB.api, 'tts');
+    ok('T-921: the same refusal on the primary, and its view still reports the flag true',
+      bUpd921.ok === false && /always true since T-921/.test(bUpd921.error || '') && bPrimView921.primary && bPrimView921.primary.batch_allowed === true, bUpd921);
     const scene188 = [
       { voice: 'tomboy1', text: 'Data line one. ' + 'a'.repeat(60) },
       { voice: 'tomboy2', text: 'Worf line two.' },
       { voice: 'tomboy1', text: 'Data line three. ' + 'b'.repeat(70) },
     ];
-    const bRef = J(await call(BB.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'opt-out scene', dialogue: scene188, part_seconds: 12 }));
-    ok('T-188: dispatch_batch parts keep OFF a batch_allowed:false endpoint (refusal names it)',
-      bRef.ok === false && /batch_allowed:false/.test(bRef.error || '') && /e-1/.test(bRef.error || ''), bRef.error);
+    // The ordinary dispatch goes FIRST here: before T-921 the batch was refused and nothing occupied an
+    // endpoint, so placement was proved afterwards. Now the batch is placed, so the placement claim is
+    // taken before it — the claim itself is unchanged.
     const bPlain = J(await call(BB.api, '/api/deepamp/dispatch_tts', 'POST', { fn: 'tts', model: 'qwen3-tts', voice: 'tomboy1', text: 'an ordinary single-voice dispatch may still use it' }));
-    ok('T-188: an ordinary single-voice dispatch_tts MAY still use a batch_allowed:false endpoint',
+    ok('T-188: an ordinary single-voice dispatch_tts MAY still use a registered endpoint',
       bPlain.ok === true && bPlain.endpoint_id === 'e-1', bPlain);
+    const bRef = J(await call(BB.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'opt-out scene', dialogue: scene188, part_seconds: 12 }));
+    ok('T-921: a batch is placed on the fleet it used to be barred from — no endpoint is outside batches any more',
+      bRef.ok === true && bRef.dispatched >= 1 && !!bRef.batch_id, bRef);
     const bPin = J(await call(BB.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'pinned opt-out', dialogue: scene188, part_seconds: 12, endpoint_id: 'e-1' }));
-    ok('T-188: a batch PINNING a batch_allowed:false endpoint is refused naming the endpoint',
-      bPin.ok === false && /pinned/.test(bPin.error || '') && /batch_allowed:false/.test(bPin.error || '') && /e-1/.test(bPin.error || ''), bPin.error);
+    ok('T-921: and a batch PINNING an endpoint is taken — the pin is the control over where a part goes now',
+      bPin.ok === true && bPin.endpoint_id === 'e-1' && !!bPin.batch_id, bPin);
     const bRows = J(await call(BB.api, '/api/deepamp/playlist_list?page_size=50', 'GET')).items;
-    ok('T-188: the two batch refusals created no rows and no batch id',
-      bRows.length === 2 && !bRef.batch_id && !bPin.batch_id, bRows.map(function (j) { return j.id; }));
+    ok('T-921: nothing was refused for a batch flag — every batch asked for in this block got its rows',
+      bRows.length > 2 && !!bRef.batch_id && !!bPin.batch_id, bRows.map(function (j) { return j.id; }));
     BB.bag.release();
     await tick(120);
-    // The fixture barred the primary for batches above; put it back to its default so the
-    // next case really tests the rule it names: the primary is never batch-barred BY DEFAULT.
-    await call(BB.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'primary', batch_allowed: true });
     const bOk = J(await call(BB.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'primary lane scene', dialogue: scene188, part_seconds: 12, endpoint_id: 'primary' }));
     ok('T-188: a batch pinned to the primary still works (the primary is never batch-barred)',
       bOk.ok === true && bOk.dispatched >= 1 && !('endpoint_id' in bOk), bOk);
@@ -8679,6 +8715,55 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       && JSON.stringify(e1m.endpoint.models) === '["moss_ttsd"]', e1m.error);
     const mNoId = await call(E.api, '/api/deepamp/endpoint_models', 'POST', { fn: 'tts' });
     ok('T-188: endpoint_models with no id is a 400 naming id', mNoId.code === 400 && /id/.test(J(mNoId).error || ''), mNoId.code);
+
+    // ---- T-922: the fleet beside the list, and one slot's list on request ----
+    // The operator's ask, verbatim: "The available ui-selections should actually never result from a single
+    // endpoint's feature set as user might want to set other endpoint ---> convert into an overall fix on all
+    // fronts and do so". Measured on the live lane the same day: the panel answered 30/18/13 models and every
+    // one of them came from the primary's catalog, because `fetchModels` reads one url. A second registered
+    // slot's models could not be chosen at all without promoting it first.
+    console.log('\n--- T-922: get_models carries the fleet, and can read one named slot ---');
+    const MODELS922 = { data: [
+      { id: 'moss_ttsd', family: 'moss_ttsd', task: 'tts', path: '/mnt/llama/audio.cpp/moss.gguf' },
+      { id: 'qwen3-tts', family: 'qwen3_tts', task: 'tts', path: '/mnt/llama/audio.cpp/qwen3.gguf' },
+      { id: 'moss_ttsd_gen', family: 'moss_ttsd', task: 'gen', path: '/mnt/llama/audio.cpp/gen.gguf' },
+    ] };
+    const F922 = mk188({ modelsPayload: MODELS922 });
+    await tick(30);
+    await addE(F922.api, { fn: 'tts', url: 'http://10.0.0.20:8963', models: ['moss_ttsd', 'glm_tts'] });
+    const g922a = J(await call(F922.api, '/api/deepamp/get_models?fn=tts', 'GET'));
+    ok('T-922: every row of the primary list names the slot it was read from (served_by) — the row is the unit a union is built from',
+      g922a.models.length === 2 && g922a.models.every(function (m) { return m.served_by === 'primary'; }),
+      g922a.models.map(function (m) { return m.id + ':' + m.served_by; }));
+    ok('T-922: the same answer carries the lane-s slots and what this plugin last HELD about each (declared, source, when) — the list is no longer one endpoint-s feature set',
+      !!g922a.fleet && Array.isArray(g922a.fleet.slots) && g922a.fleet.slots.length === 2
+      && g922a.fleet.slots[0].id === 'primary' && g922a.fleet.slots[1].id === 'e-1'
+      && g922a.fleet.slots[1].declared === 2 && g922a.fleet.slots[1].models_source === 'operator',
+      g922a.fleet && g922a.fleet.slots);
+    ok('T-922: and it says plainly when another slot declares models this list does not carry, naming the one read that settles it',
+      /e-1 declares 1 model/.test(g922a.fleet.note || '') && /get_models\?fn=tts&id=/.test(g922a.fleet.note || ''),
+      g922a.fleet && g922a.fleet.note);
+    const g922b = J(await call(F922.api, '/api/deepamp/get_models?fn=tts&id=e-1', 'GET'));
+    ok('T-922: get_models?fn=&id=<slot> reads THAT slot and its rows name it — the models of a non-primary slot are now reachable without promoting it',
+      g922b.ok === true && g922b.served_by === 'e-1' && g922b.models.length === 2
+      && g922b.models.every(function (m) { return m.served_by === 'e-1'; }),
+      { ok: g922b.ok, served_by: g922b.served_by, models: (g922b.models || []).map(function (m) { return m.id; }) });
+    const g922c = J(await call(F922.api, '/api/deepamp/endpoint_registry?fn=tts', 'GET'));
+    const e922 = (g922c.endpoints || []).filter(function (e) { return e.id === 'e-1'; })[0] || {};
+    ok('T-922: a read through get_models is held exactly as the same read through endpoint_models is — one answer per slot, not two copies',
+      e922.models_source === 'engine' && e922.models_at > 0 && JSON.stringify(e922.models) === JSON.stringify(['moss_ttsd', 'qwen3-tts', 'moss_ttsd_gen']),
+      { source: e922.models_source, at: e922.models_at, models: e922.models });
+    const g922d = J(await call(F922.api, '/api/deepamp/get_models?fn=task&id=e-1', 'GET'));
+    ok('T-922: a task view on a named slot runs the SAME lane filter over that slot-s answer (a view changes what is shown, never which machine is asked)',
+      g922d.ok === true && g922d.models.length === 1 && g922d.models[0].id === 'moss_ttsd_gen'
+      && g922d.models[0].served_by === 'e-1', (g922d.models || []).map(function (m) { return m.id + ':' + m.task; }));
+    const g922e = J(await call(F922.api, '/api/deepamp/get_models?fn=tts&id=e-9', 'GET'));
+    ok('T-922: an id that is not registered is a refusal naming the id and the read that lists ids',
+      g922e.ok === false && /no endpoint e-9/.test(g922e.error || '') && /endpoint_registry/.test(g922e.error || ''), g922e.error);
+    const g922f = await call(F922.api, '/api/deepamp/get_models?fn=tts&id=not-an-id', 'GET');
+    ok('T-922: a malformed id is a 400 naming the shape (the same discipline the endpoint_* verbs run)',
+      g922f.code === 400 && /primary.*e-<digits>|e-<digits>/.test(J(g922f).error || ''), g922f.code);
+    F922.bag.release();
 
     // ---- endpoint_remove refuses while rows are placed on it ----
     console.log('\n--- T-188 endpoint_remove: no live row points at a removed endpoint ---');
@@ -8949,7 +9034,10 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       p4back.endpoint.enabled === true && p4ok.ok === true && p4ok.endpoint_id === 'primary', p4ok);
     P4.bag.release();
 
-    // ---- batch_allowed:false on the primary: batch parts barred, plain dispatch fine ----
+    // RE-CUT 2026-11-25 (T-921 contract change): the primary's batch bar is gone. The operator's word:
+    // "keep it in code, but set it to true for all TTS endpoints, remove the buttons ... we can get rid
+    // of the risk". What this block proves now is the new contract: the flag is refused at the door, the
+    // primary's view still answers true, and a batch on the primary is placed.
     const scene198 = [
       { voice: 'tomboy1', text: 'Data line one. ' + 'a'.repeat(60) },
       { voice: 'tomboy2', text: 'Worf line two.' },
@@ -8959,27 +9047,37 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     await tick(30);
     await call(P5.api, '/api/deepamp/get_models?fn=tts', 'GET');
     const p5u = await verb(P5, 'endpoint_update', { fn: 'tts', id: 'primary', batch_allowed: false });
-    ok('T-198: batch_allowed:false is accepted on the primary and reported on its view',
-      p5u.ok === true && p5u.endpoint.batch_allowed === false && p5u.endpoint.enabled === true, p5u);
+    ok('T-198 (T-921): batch_allowed:false on the primary is refused by name — it is no longer a state the primary can be put into',
+      p5u.ok === false && /batch_allowed is always true since T-921/.test(p5u.error || ''), p5u);
     const p5b = J(await call(P5.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'primary batch bar', dialogue: scene198, part_seconds: 12 }));
-    ok('T-198: batch_allowed:false on the PRIMARY bars dispatch_batch parts (refusal, no batch id, no rows)',
-      p5b.ok === false && !p5b.batch_id && /batch_allowed:false/.test(p5b.error || '')
-      && /dispatch_batch parts never land here/.test(p5b.error || ''), p5b.error);
+    ok('T-921: dispatch_batch is placed on the primary — there is no batch bar on it to hit',
+      p5b.ok === true && !!p5b.batch_id && p5b.dispatched >= 1, p5b);
     const p5t = J(await call(P5.api, '/api/deepamp/dispatch_tts', 'POST', { fn: 'tts', model: 'qwen3-tts', voice: 'tomboy1', text: 'an ordinary single-voice dispatch still uses the primary' }));
-    ok('T-198: batch_allowed:false does NOT bar an ordinary dispatch_tts on the primary (T-205a contract change: it reports endpoint_id "primary")',
+    ok('T-198: an ordinary dispatch_tts on the primary is unaffected (T-205a contract change: it reports endpoint_id "primary")',
       p5t.ok === true && p5t.endpoint_id === 'primary', p5t);
     P5.bag.release();
 
-    // ---- the stt primary: the flag is accepted, stored, reported, and INERT ----
+    // ---- the stt primary: the flag answers true, is reported, and is INERT ----
     const P6 = mk198();
     await tick(30);
-    const p6u = await verb(P6, 'endpoint_update', { fn: 'stt', id: 'primary', batch_allowed: false });
-    ok('T-198: batch_allowed on the STT primary is accepted and the answer says it is inert there',
-      p6u.ok === true && p6u.endpoint.batch_allowed === false && /INERT/.test(p6u.note || '')
+    // (T-928 contract change: the body used to carry `build:'dev-abc1234'` as the field being updated. That field
+    // is retired — "Retire it", the operator's word of 2026-11-26 on `TODOS.md` part one item 71 — so the batch
+    // flag is the field this press carries, which is what the assertion is actually about.)
+    // (T-928: the vehicle was the retired `build` field, then a models list - the primary takes only
+    // enabled / batch_allowed here, so `enabled:false` is the press that reaches the changed note.)
+    const p6u = await verb(P6, 'endpoint_update', { fn: 'stt', id: 'primary', enabled: false });
+    // ... and the flag is put back at once: this press is a vehicle for the changed note, not a state this
+    // block wants to keep - the assertions after it dispatch against the stt primary.
+    await verb(P6, 'endpoint_update', { fn: 'stt', id: 'primary', enabled: true });
+    ok('T-198 (T-921): the stt primary update note still says the batch flag is INERT there — dispatch_batch is tts-only',
+      p6u.ok === true && p6u.endpoint.batch_allowed === true && /INERT/.test(p6u.note || '')
       && /no batch lane/.test(p6u.note || ''), p6u.note);
+    const p6b921 = await verb(P6, 'endpoint_update', { fn: 'stt', id: 'primary', batch_allowed: false });
+    ok('T-921: and turning it off is refused on the stt lane too — one answer on every lane',
+      p6b921.ok === false && /always true since T-921/.test(p6b921.error || ''), p6b921);
     const p6l = await listE(P6.api, 'stt');
-    ok('T-198: the inert flag is still REPORTED on the stt primary (no invented behaviour)',
-      p6l.primary.batch_allowed === false && p6l.primary.url === 'http://10.0.0.10:8962', p6l.primary);
+    ok('T-198 (T-921): the flag is REPORTED true on the stt primary (no invented behaviour)',
+      p6l.primary.batch_allowed === true && p6l.primary.url === 'http://10.0.0.10:8962', p6l.primary);
     const p6p = call(P6.api, '/api/deepamp/dispatch_stt', 'POST', { fn: 'stt', model: 'qwen3_asr', file_path: '/tmp/unchanged.wav' });
     await tick(60);
     P6.bag.release();
@@ -9764,16 +9862,23 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     B2.bag.release();
     await tick(200);
 
+    // RE-CUT 2026-11-25 (T-921 contract change). This fixture used two endpoints both carrying
+    // batch_allowed:false to prove the bar is HARD for parts and inert for an ordinary dispatch. The bar
+    // can no longer be reached — the operator took the switch out ("set it to true for all TTS
+    // endpoints ... we can get rid of the risk") — so the fixture now proves the new contract in the same
+    // shape: an entry stored with the flag false is read back allowed, and its batch is placed.
     const B3 = mk203({ registry: { tts: [ttsE('e-1', 'http://10.0.0.20:8963', ['moss_ttsd'], { batch_allowed: false })], stt: [] } });
     await tick(30);
     J2(await call(B3.api, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'primary', batch_allowed: false }));
-    const b3 = J2(await call(B3.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'barred scene', dialogue: SCENE203, part_seconds: 12 }));
-    ok('T-203: batch_allowed:false is a HARD bar for parts on both endpoints — refused, naming each one',
-      b3.ok === false && !b3.batch_id && /batch_allowed:false/.test(b3.error || '')
-      && /e-1/.test(b3.error || '') && /10\.0\.0\.10:8963/.test(b3.error || ''), b3.error);
+    const b3reg = J2(await call(B3.api, '/api/deepamp/endpoint_registry?fn=tts', 'GET'));
+    ok('T-921: an entry the state file stored with batch_allowed:false is reported true — the flag does not survive a load',
+      !!b3reg.endpoints && b3reg.endpoints.length === 1 && b3reg.endpoints[0].batch_allowed === true, b3reg.endpoints);
     const b3plain = J2(await call(B3.api, '/api/deepamp/dispatch_tts', 'POST', { fn: 'tts', model: 'moss_ttsd', text: 'an ordinary single-voice dispatch is not batch-barred' }));
     ok('T-203: the same fleet still takes an ordinary dispatch (the bar is for batch parts only)',
       b3plain.ok === true && b3plain.status === 'running', b3plain);
+    const b3 = J2(await call(B3.api, '/api/deepamp/dispatch_batch', 'POST', { fn: 'tts', model: 'moss_ttsd', title: 'barred scene', dialogue: SCENE203, part_seconds: 12 }));
+    ok('T-203 (T-921): a fleet that used to be hard-barred for parts now takes them — the bar is never reached',
+      b3.ok === true && !!b3.batch_id && (b3.parts || []).length >= 1, b3);
     B3.bag.release();
     await tick(150);
 
@@ -11223,9 +11328,13 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       && !(cProm.endpoints || []).some(function (e) { return e.id === 'e-1'; }), { primary: (cProm.primary || {}).url, endpoints: (cProm.endpoints || []).map(function (e) { return e.id; }) });
     ok('T-238 (C): the displaced primary survives as a NEW registry id with its own url (nothing is dropped on the floor)',
       !!cProm.displaced && (cProm.displaced || {}).id === 'e-2' && (cProm.displaced || {}).url === P38, cProm.displaced);
+    // T-921 note on the two assertions below: the flag half of "follows its machine" can no longer be
+    // shown by a difference, because batch_allowed is true everywhere now (the operator took the switch
+    // out). The clocks still carry the proof this card was written for — a swap moves a machine's state
+    // with the machine — and the flag is asserted at its one legal value on both sides.
     ok('T-238 (C): every flag / clock answer follows its MACHINE through the swap, not the slot',
       (cProm.primary || {}).batch_allowed === true && (cProm.primary || {}).last_used_at === cClockE1
-      && (cProm.displaced || {}).batch_allowed === false && (cProm.displaced || {}).last_used_at === cClockPrimary,
+      && (cProm.displaced || {}).batch_allowed === true && (cProm.displaced || {}).last_used_at === cClockPrimary,
       { primary: { batch: (cProm.primary || {}).batch_allowed, lru: (cProm.primary || {}).last_used_at, was: cClockE1 }, displaced: { batch: (cProm.displaced || {}).batch_allowed, lru: (cProm.displaced || {}).last_used_at, was: cClockPrimary } });
     ok('T-238 (C): the primary model answer was an answer about the OLD url, so it travels onto the demoted entry instead of being re-claimed for the new primary',
       (cProm.displaced || {}).models_source === 'engine' && (cProm.displaced || {}).models_at > 0
@@ -11304,8 +11413,11 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       cbRow(c2.job_id).endpoint_id === 'e-2' && cbRow(c2.job_id).endpoint_url === P38
       && cbRow(c4.job_id).endpoint_id === 'primary' && cbRow(c4.job_id).endpoint_url === B38,
       { c2: { id: cbRow(c2.job_id).endpoint_id, url: cbRow(c2.job_id).endpoint_url }, c4: { id: cbRow(c4.job_id).endpoint_id, url: cbRow(c4.job_id).endpoint_url } });
-    ok('T-238 (C): the swapped flags and clocks persisted too (batch_allowed:false is still on the demoted machine)',
-      cbReg.primary.batch_allowed === true && cbReg.endpoints[0].batch_allowed === false,
+    // T-921: the demoted machine's flag is true after the restart too. The parenthetical of this
+    // assertion used to read "batch_allowed:false is still on the demoted machine"; the state file may
+    // still carry the old word, and the load is what turns it into the one value it now has.
+    ok('T-238 (C): the swapped flags and clocks persisted too (T-921: the batch flag comes back true on both sides of a restart)',
+      cbReg.primary.batch_allowed === true && cbReg.endpoints[0].batch_allowed === true,
       { primary: cbReg.primary.batch_allowed, e2: cbReg.endpoints[0].batch_allowed });
 
     // Atomic refusal: nothing partial, nothing half-done.
@@ -11492,7 +11604,10 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     // engine's own /health answered the last time endpoint_models read it, kept apart from the recorded `build` so
     // the two can never overwrite each other. The operator's word behind it was "4,5,6,7 fix". The pin's demand is
     // unchanged and still holds: primary view and registry entry answer the SAME keys.
-    const KEYS243 = ['backend', 'batch_allowed', 'build', 'build_at', 'checked_at', 'enabled', 'engine_build', 'engine_build_at', 'fn', 'health_error', 'held_at', 'held_by', 'hold_reason', 'host', 'id', 'last_used_at', 'loaded_at', 'loaded_models', 'model_failures', 'models', 'models_at', 'models_raw', 'models_source', 'online', 'route', 'url']  // T-889 contract change (2026-11-19, TODOS item 51 half (a), the operator's word "do now"): `models_raw` joins BOTH views, so the identity this pin demands still holds — and `models_bounded` is deliberately NOT here because it is written only on an answer that was actually cut;
+    const KEYS243 = ['backend', 'batch_allowed', 'checked_at', 'enabled', 'engine_build', 'engine_build_at', 'fn', 'health_error', 'held_at', 'held_by', 'hold_reason', 'host', 'id', 'last_used_at', 'loaded_at', 'loaded_models', 'model_failures', 'models', 'models_at', 'models_raw', 'models_source', 'online', 'route', 'url']  // T-928 contract change (2026-11-26, TODOS part one item 71, the operator-s word when asked which of the two build
+    // fields to keep: "Retire it"): `build` / `build_at` leave BOTH views, so the only build claim either view
+    // states is the engine-s own answer. The identity this pin demands still holds.
+    // T-889 contract change (2026-11-19, TODOS item 51 half (a), the operator's word "do now"): `models_raw` joins BOTH views, so the identity this pin demands still holds — and `models_bounded` is deliberately NOT here because it is written only on an answer that was actually cut;
     const ent243 = (aReg0.endpoints || aReg0.entries || [])[0] || null;
     ok('T-243: endpoint_registry\'s primary view carries models / models_source / models_at, and its key set is now IDENTICAL to a registry entry\'s',
       aReg0.primary.id === 'primary' && JSON.stringify(Object.keys(aReg0.primary).sort()) === JSON.stringify(KEYS243)
@@ -13314,10 +13429,10 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
       && !Object.prototype.hasOwnProperty.call(modesPlain895, 'clone_none_reason')
       && fault895.ok === true && faultRow898.clone_ref_key === 'target_voice',
       { modes: modes895(modesPlain895), ref_key: faultRow898.clone_ref_key });
-    ok('T-895 (T-898: the source read bound grows from 13 000 to 18 000, because the channel branch is longer than the absence branch it sits beside - a bound, not a claim): both clone legs of the mode reader consult ONE channel fact computed before either is offered — the caps leg (a clone-required family) and the record leg (a family whose own record declares the clone task, which is the shape this plugin-s dated family table gives a self-voicing model). Pinned on the source because a fixture cannot fake this package-s own table',
+    ok('T-895 (T-898: the source read bound grew 13 000 -> 18 000; T-928 grows it to 20 000, because the list-scope paragraph of `TODOS.md` item 105 sits above both clone legs - a bound, not a claim, and the ordering it pins is unchanged): both clone legs of the mode reader consult ONE channel fact computed before either is offered - the caps leg (a clone-required family) and the record leg (a family whose own record declares the clone task, which is the shape this plugin-s dated family table gives a self-voicing model). Pinned on the source because a fixture cannot fake this package-s own table',
       (function () {
         const src895 = require('fs').readFileSync(LIB, 'utf8');
-        const body895 = (src895.match(/function capVoiceModesOf\(info, fam, modelRecord\) \{[\s\S]{0,18000}?\n  \}/) || [''])[0];
+        const body895 = (src895.match(/function capVoiceModesOf\(info, fam, modelRecord\) \{[\s\S]{0,20000}?\n  \}/) || [''])[0];
         const at895 = body895.indexOf('var chanFault895 = cloneChannelFault(fam);');
         const caps895 = body895.indexOf('caps475.clone_required');
         const recordLeg895 = body895.indexOf('if (chanFault895) {', caps895);
@@ -13953,18 +14068,23 @@ const tick = function (ms) { return new Promise(function (r) { setTimeout(r, ms 
     ok('T-221 (d): an endpoint id that is no longer registered drops the pin and re-places (the hand-edited-state case), with the reason named',
       gR.ok === true && gR.endpoint_id === 'primary' && gR.re_pin === 'dropped' && /no longer registered/.test(String(gR.re_pin_why)), gR);
 
-    // (e) batch integrity: a PART is barred from an endpoint that no longer allows batches.
+    // (e) batch integrity: a PART is never dropped over a batch flag.
+    // RE-CUT 2026-11-25 (T-921 contract change): the second half used to turn the endpoint's batches off
+    // and show the part re-placing. The flag cannot be turned off any more ("set it to true for all TTS
+    // endpoints"), so the honest form is the same ruling with one fewer exit: the part keeps its
+    // endpoint, the attempt to bar it is refused by name, and the retry still keeps the endpoint.
     const C0 = mk221({ row: { batch_id: 'b-0101', batch_part: 1, batch_parts: 2 } });
     await C0.add();
     await tick(40);
     const c0R = await C0.retry();
     const c1 = await C0.verb('endpoint_update', { fn: 'tts', id: 'e-1', batch_allowed: false });
     const c1R = await C0.retry('ap-0099');
-    console.log('METRICS (e) batch ' + JSON.stringify({ kept_ep: c0R.endpoint_id, upd: c1.ok, dropped_ep: c1R.endpoint_id, why: c1R.re_pin_why }));
-    ok('T-221 (e): a retried batch PART keeps its endpoint while that endpoint still allows batches, and re-places the moment it stops allowing them (a part must not be refused over a pin)',
-      c0R.ok === true && c0R.endpoint_id === 'e-1' && c0R.re_pin === undefined && c1.ok === true
-      && c1R.ok === true && c1R.endpoint_id === 'primary' && c1R.re_pin === 'dropped' && /allow batches/.test(String(c1R.re_pin_why)),
-      { kept: c0R.endpoint_id, dropped: c1R.endpoint_id, why: c1R.re_pin_why });
+    console.log('METRICS (e) batch ' + JSON.stringify({ kept_ep: c0R.endpoint_id, upd: c1.ok, kept_again: c1R.endpoint_id, why: c1R.re_pin_why }));
+    ok('T-221 (e) + T-921: a retried batch PART keeps its endpoint, the attempt to bar it for batches is refused naming the ruling, and the retry keeps the endpoint anyway (a part is never refused over a pin)',
+      c0R.ok === true && c0R.endpoint_id === 'e-1' && c0R.re_pin === undefined
+      && c1.ok === false && /always true since T-921/.test(String(c1.error))
+      && c1R.ok === true && c1R.endpoint_id === 'e-1' && c1R.re_pin === undefined,
+      { kept: c0R.endpoint_id, kept_again: c1R.endpoint_id, upd_error: c1.error });
 
     // (f) the primary is an endpoint too: a row that ran on it re-pins to it while one is set.
     const M = mk221({ row: { endpoint_id: 'primary', endpoint_url: PRIM221 } });
@@ -17749,7 +17869,9 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     const wall912Armed912 = [];
     let wall912Now912 = 1700000000000;
     const wall912 = (function () {
-      const m912 = /function engineWall912\(spec\) \{[\s\S]*?\n  \}\n/.exec(SRC908);
+      // T-930 contract change: the helper took two optional parameters (an explicit wall, and the name the
+      // abort sentence carries), so the slice follows the wider signature. The five drives below are unchanged.
+      const m912 = /function engineWall912\(spec(?:, wallMs912, label912)?\) \{[\s\S]*?\n  \}\n/.exec(SRC908);
       if (!m912) return null;
       const floor912 = Number((/var OWN_WALL_MIN912 = (\d+);/.exec(SRC908) || [])[1]);
       return new Function('genTimeoutMs', 'setTimeout', 'clearTimeout', 'AbortController', 'Date', 'OWN_WALL_MIN912',
@@ -17788,8 +17910,30 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     ok('T-912: a call that came back has its wall taken down — disarm clears the pending clock, so a settled row cannot be cut after the fact:',
       !!wC912 && wC912.fired() === false && boxC912.cleared === true,
       { cleared: boxC912.cleared, fired: wC912 && wC912.fired() });
+    // T-930: the two new parameters, driven the same way. A capture asks its own number on purpose, so an
+    // explicit wall must beat the job number, and the sentence it aborts with must name the wall that fired.
+    const wall930 = wall912({ timeoutMs: 900000 }, 900000, 'capture download wall');
+    ok('T-930: a long non-engine call named with its own wall is timed at THAT number, not at the job number',
+      wall930 && wall930.limit_ms === 900000 && wall930.spec.timeoutMs === 900000 && wall930.spec.onExpiry === 'none',
+      { limit: wall930 && wall930.limit_ms });
+    ok('T-930: and the wall names itself — the abort reads the wall this call asked for, not job_timeout_sec',
+      (function () {
+        const b930 = wall930 && wall930.spec.signal;
+        if (!b930) return false;
+        const armed930 = wall912Armed912[wall912Armed912.length - 1];
+        if (!armed930) return false;
+        wall912Now912 += 900001;
+        armed930.fn();
+        return b930.aborted === true && /capture download wall 900 s/.test(String(b930.reason))
+          && !/job_timeout_sec/.test(String(b930.reason));
+      })(), null);
+
     ok('T-912 source: one decision, one place — the helper is asked once per engine attempt, the wall spec is what reaches runx, and when this plugin-s own wall ended the call the result is reported as the wall every consumer already reads rather than as a hand cancel:',
-      (SRC908.match(/engineWall912/g) || []).length === 2
+      // (T-930 contract change, 2026-11-26: the helper is now asked at two places — once per engine attempt and
+      // once for the capture download leg, which asked 900 000 ms, above the transport-s documented clamp. The
+      // "one decision" the sentence names is the single helper, not a single call site. Re-expressed, not dropped.)
+      (SRC908.match(/engineWall912/g) || []).length === 3
+      && /var dlWall930 = engineWall912\(dlSpec, YTDLP_DOWNLOAD_TIMEOUT_MS/.test(SRC908)
       && /var wall912 = engineWall912\(spec\);/.test(SRC908)
       && /return runx\(wall912 \? wall912\.spec : spec\)/.test(SRC908)
       && /wall912\.fired\(\) && r\) \{ r\.timedOut = true; r\.aborted = false;/.test(SRC908)
@@ -18350,7 +18494,12 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       return ln.trim().indexOf('//') !== 0 && ln.indexOf('CURATED_TAGS299') >= 0;
     }).length;
     const capsBody = /function capsOf\(family, task\) \{[\s\S]*?\n  \}/.exec(SRC4b);
-    const allowBody = /function modelsForFn\(list, fn\) \{[\s\S]*?\n  \}/.exec(SRC4b);
+    // T-922 (2026-11-25): modelsForFn gained a third parameter (`servedBy` — which slot a row was read
+    // from, the operator's "The available ui-selections should actually never result from a single
+    // endpoint's feature set"). The pin matched the old parameter list literally and stopped finding the
+    // function; it now matches the function under any parameter list, which is what this assertion cares
+    // about: the ONE reader of the map, whatever its signature.
+    const allowBody = /function modelsForFn\(list, fn[^)]*\) \{[\s\S]*?\n  \}/.exec(SRC4b);
     ok('U-4b: the map is read in exactly ONE place (declaration + modelsForFn), and capsOf never sees it',
       reads4b === 2 && !!capsBody && capsBody[0].indexOf('CURATED_TAGS299') === -1
       && !!allowBody && allowBody[0].indexOf('CURATED_TAGS299') >= 0,
@@ -18448,6 +18597,29 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       modesList880.indexOf('preset_speaker') >= 0 && modesList880.indexOf('no_voice') < 0
       && String((modes880.voice_modes || []).map(function (m) { return m.because || ''; }).join(' ')).indexOf('model_specs') >= 0,
       { modes: modesList880 });
+    // T-928 (`TODOS.md` part one item 105, at the operator's word of 2026-11-26): a list read from a FAMILY
+    // record is not the set one checkpoint takes - one family's spec carries the union of two model generations
+    // (measured 2026-11-24, item 75: 280 names across two packages, while the checkpoint on the lane accepts its
+    // package's subset). The gate's behaviour is unchanged; what was added is that an answer now names the scope
+    // of the list it is showing. These pins hold that line, and they hold the half that must NOT change.
+    const SRC928 = require('fs').readFileSync(LIB, 'utf8');
+    const scope928 = (modes880.voice_modes || []).filter(function (m) { return m.mode === 'preset_speaker'; })[0] || {};
+    ok('T-928: a voice_modes answer built from a family record says so - builtins_scope:"family", the note beside it, and list_scope on the mode it offers',
+      modes880.builtins_scope === 'family' && /the names this answer lists are the family-s/.test(String(modes880.builtins_scope_note || ''))
+      && scope928.list_scope === 'family'
+      && /that list is the family-s, taken from its record/.test(String(scope928.because || ''))
+      && /which of those names this checkpoint takes is the engine-s to answer/.test(String(scope928.because || '')),
+      { scope: modes880.builtins_scope, note: String(modes880.builtins_scope_note || '').slice(0, 90), because: String(scope928.because || '').slice(0, 150) });
+    ok('T-928: what the bar does with a name is UNCHANGED - a name outside the list is still refused with the names echoed, so the caller can correct itself',
+      noVoice880.ok === false && /alba/.test(String(noVoice880.error || ''))
+      && /model_capabilities\?fn=tts&family=pocket_tts/.test(String(noVoice880.error || '')),
+      { error: String(noVoice880.error || '').slice(0, 140) });
+    ok('T-928 source: the scope is DERIVED from where the names came from - no per-family speaker table is typed anywhere, which is the shape of claim this lane refuses (item 87)',
+      /builtins_scope: \(gbuiltins\.length \? \(gsrc === 'model' \? 'model' : 'family'\) : 'none'\)/.test(SRC928)
+      && /engine_presets_scope: \(builtins\.length \? \(builtinsSource === 'model' \? 'model' : 'family'\) : 'none'\)/.test(SRC928)
+      && /if \(mrScope782 && mrScope782\.length === builtins\.length/.test(SRC928)
+      && !/SCOPE_BY_FAMILY|BUILTIN_SCOPE_BY/.test(SRC928),
+      { catalog: /builtins_scope: \(gbuiltins/.test(SRC928), refresh: /engine_presets_scope:/.test(SRC928), typed_table: /SCOPE_BY_FAMILY/.test(SRC928) });
     V880.bag.release();
 
     // (5) Item 49: the two families join the option-deny set. The engine body must not carry the key, the
@@ -21818,14 +21990,73 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     { row_note_written: true });
 
   // ---- T-626 (2026-10-21, operator request, verbatim: "the buildnumber should be visible in our
-  // endpoint section (track as small todo)") ----
-  // The route this card chose is RECORD, not MEASURE. Measured on both CPU nodes 2026-10-21 07:00 Berlin:
-  // `GET <engine>/health` answers status / backend / models / ui / ui_management and no version, and the
-  // engine build identity is printed only for `--version`. So the plugin keeps what a person read on the
-  // node, with the moment it was recorded, and reports it on the endpoint view. These pins are the host
-  // half of that: written by the two verbs, answered by the registry read, persisted, and refused when the
-  // string is not a build string.
-  console.log('\n--- T-626: the engine build a person recorded, on the endpoint entry ---');
+  // endpoint section (track as small todo)") ---- RE-CUT 2026-11-26 as T-928 (`TODOS.md` part one item 71).
+  // T-626 chose RECORD over MEASURE because on 2026-10-21 no engine answered for itself. That premise went on
+  // 2026-11-08 (`CHANGELOG.md` T-741): a slot's own /health carries its build. An entry then carried two build
+  // fields, one live and one fossil two upgrades behind a lane that kept rendering, and the operator's word on
+  // which to keep was "Retire it". Every assertion below is re-cut to the new contract, not dropped: a body that
+  // names the retired field is refused before any other field applies, no view answers such a key, the refusal is
+  // logged like any other bad field, and what a state file carries is preserved and revalidated but never offered.
+  // T-931 (`TODOS.md` item 117, 2026-11-26, at the operator-s choice, verbatim: "Origin rule only - no script
+  // breaks"). A request that carries an `Origin` speaks for a page, and that page must be this one. A program that
+  // sends no `Origin` is untouched — which is the shape every other pin in this file already relies on, since
+  // `fakeReq` sends no headers at all.
+  const h931Host = '127.0.0.1:3080';
+  const r931None = await call(api, '/api/deepamp/queue_status', 'GET');
+  ok('T-931: a caller that sends no Origin at all is answered exactly as before (curl, a script, another process)',
+    r931None.code === 200 && JSON.parse(r931None.body).ok === true, { code: r931None.code });
+  const r931Same = await call(api, '/api/deepamp/queue_status', 'GET', undefined,
+    { origin: 'http://' + h931Host, host: h931Host });
+  ok('T-931: the panel-s own same-origin request is answered — the Origin equals the Host it was addressed to',
+    r931Same.code === 200 && JSON.parse(r931Same.body).ok === true, { code: r931Same.code });
+  const r931Port = await call(api, '/api/deepamp/queue_status', 'GET', undefined,
+    { origin: 'http://127.0.0.1:80', host: '127.0.0.1' });
+  ok('T-931: a default port is not a second origin — http://host and http://host:80 are one answer, not two',
+    r931Port.code === 200, { code: r931Port.code });
+  const r931Foreign = await call(api, '/api/deepamp/queue_status', 'GET', undefined,
+    { origin: 'http://elsewhere.example:3080', host: h931Host });
+  ok('T-931: a page on another address is refused with 403, and the refusal names the Origin it refused',
+    r931Foreign.code === 403 && /elsewhere\.example:3080/.test(r931Foreign.body)
+      && /no Origin/.test(r931Foreign.body), { code: r931Foreign.code, body: String(r931Foreign.body).slice(0, 170) });
+  const r931Write = await call(api, '/api/deepamp/dispatch_tts', 'POST', '{ this is not even JSON',
+    { origin: 'http://elsewhere.example', host: h931Host });
+  ok('T-931: the gate is before the body read — a foreign write costs no body read and no verb work (that body would have answered 400)',
+    r931Write.code === 403, { code: r931Write.code });
+  const r931Bad = await call(api, '/api/deepamp/queue_status', 'GET', undefined,
+    { origin: 'not a url', host: h931Host });
+  ok('T-931: an Origin that is not a url is refused, not treated as same-origin',
+    r931Bad.code === 403, { code: r931Bad.code });
+  const SRC931 = require('fs').readFileSync(LIB, 'utf8');
+  ok('T-931 source: one gate, at the API prefix only — the audio prefix `/deepamp` stays open, because a foreign page reading a rendered WAV costs the lane nothing',
+    (SRC931.match(/sameOrigin931\(/g) || []).length === 2
+      && /path: '\/deepamp', handler: serveAudio/.test(SRC931)
+      && !/function serveAudio[\s\S]{0,400}sameOrigin931/.test(SRC931),
+    { calls: (SRC931.match(/sameOrigin931\(/g) || []).length });
+
+  // T-930 (`docs/FACTS.md`, the harness architecture cross-reference): the transport-s documented clamp is
+  // 600 000 ms, and a call that asks for MORE than that is cut by a wall this lane neither set nor can see.
+  // The engine leg has gone through the own wall since T-912; the capture download leg asked 900 000 ms and did
+  // not, which is the latent fault that reading found. These three pins keep the claim in the code honest:
+  // the minimum is the documented number, no named ask sits at or above it without the wall, and the download
+  // site is wrapped.
+  (function () {
+    const SRC930 = require('fs').readFileSync(LIB, 'utf8');
+    const mins930 = (SRC930.match(/OWN_WALL_MIN912 = (\d+)/) || [])[1];
+    ok('T-930 source: the own-wall minimum is the transport-s documented clamp, 600 000 ms — the number `dsh-bash-local` names as the `maxTimeoutMs` default',
+      mins930 === '600000', { found: mins930 });
+    const asks930 = [];
+    const re930 = /timeoutMs: (\d{4,})/g;
+    let m930;
+    while ((m930 = re930.exec(SRC930))) { if (Number(m930[1]) >= 600000) asks930.push(Number(m930[1])); }
+    ok('T-930 source: no call in the host half asks for a value at or above the documented clamp except the capture download constant',
+      asks930.every(function (v) { return v === 900000; }) && asks930.length <= 1,
+      { at_or_above_clamp: asks930 });
+    ok('T-930 source: the capture download leg goes through the same own wall as an engine request, timed at the number it asked for',
+      /var dlWall930 = engineWall912\(dlSpec, YTDLP_DOWNLOAD_TIMEOUT_MS,/.test(SRC930)
+        && /runx\(dlWall930 \? dlWall930\.spec : dlSpec\)/.test(SRC930), null);
+  })();
+
+  console.log('\n--- T-928 (was T-626): the recorded build is retired; the engine answer is the only build claim ---');
   const BUILD626 = 'v0.9.2-drama3-base-small-26-g0125a991';
   const BUILD626B = 'v0.9.2-drama3-base-small-31-g9f01c2d';
   const URL626 = 'http://10.0.0.20:8963';
@@ -21838,61 +22069,36 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     for (let i = 0; i < l.length; i++) if (l[i] && l[i].url === url) return l[i];
     return null;
   };
+  const buildKeysOf = function (o) { return Object.keys(o || {}).filter(function (k) { return /build/.test(k); }); };
   const add626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_add', 'POST', { fn: 'tts', url: URL626, build: BUILD626 })).body);
+  ok('T-928 endpoint_add REFUSES a body that names the retired build field, and says where a build claim comes from now',
+    add626.ok === false && /build is retired/.test(add626.error || '') && /read from that endpoint/.test(add626.error || ''),
+    { err: add626.error });
+  const r626refused = await reg626('tts');
+  ok('T-928 the refused registration created no entry — the gate runs before any field is applied (the T-626 all-or-nothing rule, kept)',
+    !entryOf626(r626refused, URL626),
+    { urls: (r626refused.endpoints || []).map(function (e) { return e.url; }) });
+  const add626b = JSON.parse((await call(api626, '/api/deepamp/endpoint_add', 'POST', { fn: 'tts', url: URL626 })).body);
   const r626a = await reg626('tts');
   const ent626 = entryOf626(r626a, URL626) || {};
-  ok('T-626 endpoint_add accepts a build and endpoint_registry answers it on the entry, so the endpoint row has something to show',
-    add626.ok === true && add626.endpoint && add626.endpoint.build === BUILD626
-    && !!ent626.id && ent626.build === BUILD626 && (ent626.build_at || 0) > 0,
-    { add_ok: add626.ok, id: ent626.id, build: ent626.build, build_at_recorded: (ent626.build_at || 0) > 0 });
-  ok('T-626 an endpoint with NO recorded build answers build:"" and build_at:0 — the honest gap, never a guess',
-    !!r626a.primary && r626a.primary.build === '' && r626a.primary.build_at === 0,
-    { primary_build: (r626a.primary || {}).build, primary_build_at: (r626a.primary || {}).build_at });
-  const upd626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, build: BUILD626B })).body);
-  ok('T-626 endpoint_update MOVES the recorded build and names it in changed — a rebuild is an update, not a new registration',
-    upd626.ok === true && upd626.changed && upd626.changed.join(',') === 'build'
-    && upd626.endpoint && upd626.endpoint.build === BUILD626B && upd626.endpoint.build_at > 0,
-    { changed: upd626.changed, build: (upd626.endpoint || {}).build });
-  const idem626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, build: BUILD626B })).body);
-  ok('T-626 writing the build an endpoint already carries is changed:[] with unchanged:true, not an error (the T-502 rule)',
-    idem626.ok === true && idem626.unchanged === true && Array.isArray(idem626.changed) && idem626.changed.length === 0,
-    { changed: idem626.changed, unchanged: idem626.unchanged, err: idem626.error });
-  const prim626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'primary', build: BUILD626 })).body);
-  const r626p = await reg626('tts');
-  ok('T-626 the PRIMARY carries the recorded build under the SAME two keys a registry entry reports, so one client loop reads both',
-    prim626.ok === true && prim626.changed && prim626.changed.indexOf('build') >= 0
-    && prim626.endpoint.build === BUILD626 && r626p.primary.build === BUILD626 && r626p.primary.build_at > 0,
-    { changed: prim626.changed, primary_build: r626p.primary.build });
-  await tick(60);
-  const st626 = JSON.parse((B626.bag.fsMap || {})[STATE] || '{}');
-  ok('T-626 the recorded builds persist under the additive key endpoint_builds, keyed by lane id, primary included',
-    !!(st626.endpoint_builds && st626.endpoint_builds.tts && st626.endpoint_builds.tts[ent626.id]
-      && st626.endpoint_builds.tts[ent626.id].build === BUILD626B
-      && st626.endpoint_builds.tts.primary && st626.endpoint_builds.tts.primary.build === BUILD626),
-    { entry: st626.endpoint_builds && st626.endpoint_builds.tts[ent626.id], primary: st626.endpoint_builds && st626.endpoint_builds.tts.primary });
-  const clr626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, build: '' })).body);
-  ok('T-626 build:"" CLEARS the record and the entry answers the gap again (build:"" / build_at:0)',
-    clr626.ok === true && clr626.changed.join(',') === 'build' && clr626.endpoint.build === '' && clr626.endpoint.build_at === 0,
-    { changed: clr626.changed, build: (clr626.endpoint || {}).build, build_at: (clr626.endpoint || {}).build_at });
-  const bad626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, enabled: false, build: 'v1.0 `whoami`' })).body);
+  ok('T-928 an entry registered without the field answers NEITHER build key, and the engine keys stay — the honest absence, not a blank',
+    add626b.ok === true && buildKeysOf(ent626).join(',') === 'engine_build,engine_build_at',
+    { build_keys: buildKeysOf(ent626) });
+  ok('T-928 the primary view answers no recorded-build key either — one client loop reads one kind of answer',
+    !!r626a.primary && buildKeysOf(r626a.primary).join(',') === 'engine_build,engine_build_at',
+    { build_keys: buildKeysOf(r626a.primary) });
+  const upd626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, enabled: false, build: 'v1.0 `whoami`' })).body);
   const ent626b = entryOf626(await reg626('tts'), URL626) || {};
-  ok('T-626 a build string that is not a build string is a 400, and it rejects the WHOLE update — the enabled:false in the same body did not land either',
-    bad626.ok === false && /build may contain letters, digits and \. _ \+ - \( \) space only/.test(bad626.error || '')
-    && ent626b.enabled === true && ent626b.build === '',
-    { err: bad626.error, enabled_still: ent626b.enabled, build_still: ent626b.build });
-  const long626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, build: 'x'.repeat(120) })).body);
-  const num626 = JSON.parse((await call(api626, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: ent626.id, build: 42 })).body);
-  ok('T-626 a too-long build and a non-string build are both refused, with the limit and the shape named',
-    long626.ok === false && /build too long \(max 96 chars\)/.test(long626.error || '')
-    && num626.ok === false && /build must be a string/.test(num626.error || ''),
-    { long: long626.error, nonstring: num626.error });
-  // A rejected field is an INPUT refusal - the same `input_refused` record a bad url or a bad route
-  // has always produced - not an endpoint-state refusal. The pin reads the record the host writes.
+  ok('T-928 a retired field in a body refuses the WHOLE update — the enabled:false beside it did not land either',
+    upd626.ok === false && /build is retired/.test(upd626.error || '') && ent626b.enabled === true,
+    { err: upd626.error, enabled_still: ent626b.enabled });
   const inputRefused626 = evs207(B626.bag, 'input_refused');
-  ok('T-626 a refused build is logged, as an input_refused record naming the verb and the reason - the same record a bad url has always produced',
-    inputRefused626.some(function (p) { return p.verb === 'endpoint_update' && /build may contain letters/.test(String(p.why || '')); })
-    && inputRefused626.some(function (p) { return p.verb === 'endpoint_update' && /build too long/.test(String(p.why || '')); }),
+  ok('T-928 a retired field is logged as an input_refused record naming the verb and the reason — the same record a bad url produces',
+    inputRefused626.some(function (p) { return p.verb === 'endpoint_add' && /build is retired/.test(String(p.why || '')); })
+    && inputRefused626.some(function (p) { return p.verb === 'endpoint_update' && /build is retired/.test(String(p.why || '')); }),
     { refusals: inputRefused626.map(function (p) { return p.verb + ':' + String(p.why || '').slice(0, 34); }) });
+  // The preserved-data half: a state file written before the retirement still carries its block, the host still
+  // reads it and still writes it back, and no answer turns any of it into a claim.
   const seed626 = {
     endpoint_registry: { tts: [{ id: 'e-1', fn: 'tts', url: URL626, route: 'speech', enabled: true, batch_allowed: true }], stt: [] },
     endpoint_builds: {
@@ -21910,16 +22116,22 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
   const api626r = B626r.bag.registered.find(function (x) { return x.path === '/api/deepamp'; }).handler;
   const r626r = JSON.parse((await call(api626r, '/api/deepamp/endpoint_registry?fn=tts', 'GET')).body);
   const ent626r = entryOf626(r626r, URL626) || {};
-  ok('T-626 a recorded build survives a restart with its timestamp, on the entry AND on the primary',
-    ent626r.build === BUILD626 && ent626r.build_at === 1760000000000
-    && r626r.primary.build === BUILD626B && r626r.primary.build_at === 1760000000001,
-    { entry: ent626r.build, entry_at: ent626r.build_at, primary: r626r.primary.build, primary_at: r626r.primary.build_at });
+  ok('T-928 a build recorded before the retirement is NOT offered by any view — kept as data, not as a claim',
+    buildKeysOf(ent626r).join(',') === 'engine_build,engine_build_at'
+    && buildKeysOf(r626r.primary).join(',') === 'engine_build,engine_build_at',
+    { entry_keys: buildKeysOf(ent626r), primary_keys: buildKeysOf(r626r.primary) });
   // The restore alone saves nothing - a mount that changed no value writes no state file - so this reads
-  // the snapshot the restored records produce once one of them is actually moved.
-  JSON.parse((await call(api626r, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', build: BUILD626B })).body);
+  // the snapshot the restored records produce once some other field of that entry is actually moved.
+  const touch626 = JSON.parse((await call(api626r, '/api/deepamp/endpoint_update', 'POST', { fn: 'tts', id: 'e-1', enabled: false })).body);
   await tick(60);
   const st626r = JSON.parse((B626r.bag.fsMap || {})[STATE] || '{}');
-  ok('T-626 the restore REVALIDATES rather than trusts: an id that is neither primary nor e-digits is dropped, a build string that fails the shape gate is dropped, and a timestamp that is not a number is read as 0 (recorded, date unknown)',
+  ok('T-928 the preserved block survives a boot and a later write, with its values and timestamps intact',
+    touch626.ok === true && !!(st626r.endpoint_builds && st626r.endpoint_builds.tts)
+    && st626r.endpoint_builds.tts['e-1'] && st626r.endpoint_builds.tts['e-1'].build === BUILD626
+    && st626r.endpoint_builds.tts['e-1'].at === 1760000000000
+    && st626r.endpoint_builds.tts.primary && st626r.endpoint_builds.tts.primary.build === BUILD626B,
+    { entry: st626r.endpoint_builds && st626r.endpoint_builds.tts['e-1'], primary: st626r.endpoint_builds && st626r.endpoint_builds.tts.primary });
+  ok('T-928 the restore still REVALIDATES rather than trusts: an id that is neither primary nor e-digits is dropped, a build string that fails the shape gate is dropped, and a timestamp that is not a number is read as 0 (recorded, date unknown)',
     (function () {
       // Read as a claim about the snapshot, not as a walk of an object that a broken host may not have written
       // at all: a host that writes no `endpoint_builds` key fails this check, it does not throw inside it.
@@ -21930,21 +22142,24 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       dropped_shape: !((st626r.endpoint_builds || {}).tts || {})['e-99'],
       at_zero: ((st626r.endpoint_builds || {}).tts || {})['e-7'] && ((st626r.endpoint_builds || {}).tts || {})['e-7'].at });
   const SRC626 = require('fs').readFileSync(LIB, 'utf8');
-  ok('T-626 source: both views report the recorded build through ONE reader, and no record answers the empty gap',
-    (SRC626.match(/buildRecordOf626\(/g) || []).length === 5
-    && /build: \(buildRecordOf626\(e\.fn, e\.id\) \|\| \{\}\)\.build \|\| ''/.test(SRC626)
-    && /build: \(buildRecordOf626\(fn, PRIMARY_ENDPOINT_ID\) \|\| \{\}\)\.build \|\| ''/.test(SRC626),
-    { readers: (SRC626.match(/buildRecordOf626\(/g) || []).length });
-  ok('T-626 source: the build is validated in the SAME gate as url / route / flags / models, so a bad build cannot half-apply, and it is stored under its own additive key',
-    /var build626 = undefined;[\s\S]{0,260}?cleanBuildText626\(body\.build\)/.test(SRC626)
-    && /modelsSupplied: models\.supplied, build: build626/.test(SRC626)
+  ok('T-928 source: no view reads a recorded build any more — the engine reader is the only build claim in either view',
+    (SRC626.match(/buildRecordOf626\(/g) || []).length === 0
+    && /engine_build: \(engineBuildOf741\(e\.fn, e\.id\) \|\| \{\}\)\.build \|\| ''/.test(SRC626)
+    && /engine_build: \(engineBuildOf741\(fn, PRIMARY_ENDPOINT_ID\) \|\| \{\}\)\.build \|\| ''/.test(SRC626),
+    { record_readers: (SRC626.match(/buildRecordOf626\(/g) || []).length });
+  ok('T-928 source: the retired field is refused in the SAME gate as url / route / flags / models, so it cannot half-apply, and the preserved key is still written',
+    /if \(body\.build !== undefined\) \{[\s\S]{0,400}?build is retired/.test(SRC626)
+    && !/modelsSupplied: models\.supplied, build: build626/.test(SRC626)
     && /endpoint_builds: endpointBuildsSnapshot626\(\)/.test(SRC626),
-    { one_gate: true, additive_key: true });
-  ok('T-626 the engine is never asked for a build, because it serves none: no version route is read anywhere in the host, and only the two verbs can write a build record',
+    { gate_refuses: /build is retired/.test(SRC626), field_carried: /modelsSupplied: models\.supplied, build: build626/.test(SRC626), additive_key: /endpoint_builds: endpointBuildsSnapshot626\(\)/.test(SRC626) });
+  ok('T-928: no verb writes a build record any more, no version route is read, and the claim the panel states is the engine-s own health answer',
     !/\/v1\/version/.test(SRC626)
-    && (SRC626.match(/setBuildRecord626\(/g) || []).length === 4
-    && /The engine does not serve its own build/.test(SRC626) && /ui_management/.test(SRC626),
-    { no_version_route_read: true, writers_including_the_definition: (SRC626.match(/setBuildRecord626\(/g) || []).length });
+    && (SRC626.match(/setBuildRecord626\(/g) || []).length === 0
+    && /engine\/health|\/health/.test(SRC626) && /ui_management/.test(SRC626),
+    { writers: (SRC626.match(/setBuildRecord626\(/g) || []).length });
+  // (The T-626 pin that required the source to carry the sentence "The engine does not serve its own build" is
+  // not re-cut: it pinned a comment, and the measurement that comment dated — 2026-10-21, no version in any
+  // health answer — was superseded by T-741 on 2026-11-08. The comment now says both, with their dates.)
   B626.bag.release(); B626r.bag.release();
 
 
@@ -22590,6 +22805,14 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       d614.ok === true && d614.model_voice_params.present === false
         && /declared no voice_id parameter for no_param_model/.test(String(d614.model_voice_params.note)),
       { params: d614.model_voice_params, modes: modesOf614(d614) });
+    // T-928 (`TODOS.md` part one item 105): the other side of the same line. Where the names came from this
+    // model's own declared parameter, the answer says 'model' and carries no family caveat.
+    ok('T-928: a voice_modes answer built from the model-s OWN voice_id parameter says builtins_scope:"model", carries no family note, and marks its mode list_scope:"model"',
+      a614.builtins_scope === 'model' && a614.builtins_scope_note === undefined
+      && ((a614.voice_modes || []).filter(function (m) { return m.mode === 'preset_speaker'; })[0] || {}).list_scope === 'model'
+      && !/that list is the family-s/.test(String(((a614.voice_modes || []).filter(function (m) { return m.mode === 'preset_speaker'; })[0] || {}).because || '')),
+      { scope: a614.builtins_scope, note: a614.builtins_scope_note, modes: modesOf614(a614) });
+
     ok('T-614 host half: the read is ON DEMAND ONLY and cached - four models on one endpoint cost ONE engine parameter read, and no timer is involved',
       N614.paramCalls().length === 1 && N614.paramCalls().every(function (c) { return /GET|curl/.test(String(c)); })
         && N614.bag.capabilityCalls.length === 1,
@@ -22932,7 +23155,9 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       (function () {
         const src766 = require('fs').readFileSync(LIB, 'utf8');
         const r766 = (src766.match(/function capGateFamilyInfo766\(fn, id, family\) \{[\s\S]{0,1400}?\n  \}/) || [''])[0];
-        const leg766 = (src766.match(/if \(!model && famArg && !fam\) \{[\s\S]{0,1600}/) || [''])[0];
+        // (T-928: the bound grows 1 600 -> 2 200. The scope paragraph of `TODOS.md` item 105 sits inside this
+        // branch, which is exactly where a family-level list and a member-level one must not be confused.)
+        const leg766 = (src766.match(/if \(!model && famArg && !fam\) \{[\s\S]{0,2200}/) || [''])[0];
         return r766.length > 0 && !/curl|shellx|runEngine|fetch\(/.test(r766)
           && /if \(id === PRIMARY_ENDPOINT_ID\)/.test(r766) && /rawModels\[fn\]/.test(r766) && /cachedModels\[fn\]/.test(r766)
           && /String\(e766\.family \|\| ''\) === fam766/.test(r766)
@@ -25963,6 +26188,62 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       { note: String(rowForce885.note || '').slice(0, 200), override: over885.length,
         drop_records_for_this_parameter: drop885.length, all_drop_records: evRecords885('option_value_dropped').length });
     G885.bag.release();
+  }
+
+  // ---------------------------------------------------------------- T-926 (2026-11-26): the private-data rule, made executable.
+  // The operator-s rule of 2026-11-15 (`AGENTS.md` 8.10, `../AGENTS.md` "Private data is not tracked inside a
+  // project-s git repo") says a tracked file of this package carries no account handle, no home path, no machine name
+  // or address, no backup location — a role word plus a pointer to `LOCALHOSTS.md` instead. It was swept by hand on
+  // 2026-11-18 (the class (b)/(c)/(d) cards) and RE-SWEPT FRESH on 2026-11-26 at the operator-s word ("then do 38,
+  // priv-sweep, but start fresh fully across the repo"); the fresh numbers are on `TODOS.md` item 38 and in
+  // `CHANGELOG.md` T-926. A hand sweep goes stale the moment the next card is written, so the rule lives here.
+  // What is NOT private data, and is allowed by construction rather than by exception-per-line:
+  //   1. the package scope `@mepaw/…` — the name this package is published under (package.json, every import);
+  //   2. a GENERAL path form: `<home>/…`, `~/.dsh/…`, and the invented home `/home/deepamp-test/…` a suite runs on;
+  //   3. the invented fixture names the suites use (`cpu1.test`, `10.0.0.x`, `192.0.2.x`, `third.lan`); which real
+  //      machine each one stands for is `LOCALHOSTS.md` §8, which git does not track — that map is the point;
+  //   4. a loopback address inside a command that runs on the node itself (`127.0.0.1`), and an upstream project URL.
+  {
+    const ROOT926 = path.join(__dirname, '..');
+    const fs926 = require('fs');
+    const list926 = ['README.md', 'AGENTS.md', 'CHANGELOG.md', 'TODOS.md', 'lib/index.js', 'lib/client.js', 'tools/index.js'];
+    ['docs', 'examples', 'scripts'].forEach(function (d926) {
+      const abs926 = path.join(ROOT926, d926);
+      if (!fs926.existsSync(abs926)) return;
+      fs926.readdirSync(abs926).forEach(function (f926) {
+        if (/\.(md|js|cjs|py|sh|json|csv)$/.test(f926)) list926.push(d926 + '/' + f926);
+      });
+    });
+    const PRIV926 = {
+      'the account handle or this machine-s home path': /(?<![@\w])mepaw\b|\/home\/mepaw\b/,
+      'a machine name of this fleet': /\b(mintiger|bender|dllama[0-9]?)\b/i,
+      'a hostname on the local .lan domain': /\b[a-z0-9][a-z0-9-]*\.lan\b/i,
+      'the workspace backup directory named as a path': /[\/~]BACKUPS[\/~]/,
+    };
+    const hits926 = {};
+    Object.keys(PRIV926).forEach(function (cls926) { hits926[cls926] = []; });
+    let read926 = 0;
+    list926.forEach(function (rel926) {
+      const abs926 = path.join(ROOT926, rel926);
+      let txt926 = '';
+      try { txt926 = fs926.readFileSync(abs926, 'utf8'); } catch (e926) { return; }
+      read926++;
+      txt926.split('\n').forEach(function (line926, i926) {
+        // The one allowed shape: a line that RECORDS the removal is allowed to name the word it removed. Both hits
+        // this found on 2026-11-26 are the class-(c)/(d) cards saying "the tracked tree names no machine" — a record
+        // that could not state what it cleaned. Anything else that matches is a real hit.
+        if (/names no machine/.test(line926)) return;
+        Object.keys(PRIV926).forEach(function (cls926) {
+          if (PRIV926[cls926].test(line926)) hits926[cls926].push(rel926 + ':' + (i926 + 1) + '  ' + line926.trim().slice(0, 120));
+        });
+      });
+    });
+    ok('T-926: the sweep has something to say about: it reads the reader-facing half of the package, not one file',
+      read926 >= 25, { files_read: read926 });
+    Object.keys(PRIV926).forEach(function (cls926) {
+      ok('T-926 no private data in a tracked file: ' + cls926 + ' does not appear anywhere the reader goes',
+        hits926[cls926].length === 0, hits926[cls926].slice(0, 6));
+    });
   }
 
 console.log('\n=== ' + pass + ' pass, ' + fail + ' fail ===');

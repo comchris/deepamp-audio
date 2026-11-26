@@ -419,7 +419,7 @@ function makeToolCtx(lane, agents) {
       { kind_description: String(renderDef9.parameters.kind.description || '').slice(0, 200) });
     ok('T-839 a3: the length rule lives on the parameter it governs, and it says both halves: leaving it out takes the length the model-s record declares, naming one is never replaced',
       !!renderDef9.parameters.duration_seconds && renderDef9.parameters.duration_seconds.type === 'number'
-      && /Leave it out and the lane takes the length that model's own capability record declares/.test(String(renderDef9.parameters.duration_seconds.description || ''))
+      && /Leave it out and the length comes from that model's own capability record, named on the row/.test(String(renderDef9.parameters.duration_seconds.description || ''))
       && /a length you name is never replaced/.test(String(renderDef9.parameters.duration_seconds.description || ''))
       && /For generate: how long the take should be, in seconds/.test(String(renderDef9.parameters.duration_seconds.description || '')),
       renderDef9.parameters.duration_seconds);
@@ -489,19 +489,28 @@ function makeToolCtx(lane, agents) {
       rDef.parameters.dialogue.items.properties.voice.description);
 
     ok('T-852 B: the model parameter says what leaving it out actually does, and the outcomes it names are the ones the host really runs (T-875 contract change, 2026-11-16: the batch half of that sentence moved — the operator-s ruling on TODOS item 62 was "No default: the caller names a model", so a scene or a plan is now one of the outcomes that is REFUSED without a model. The description and the host are still pinned to each other; only which outcome they pin moved.)',
-      /Leaving it out is not one behaviour/.test(rDef.parameters.model.description)
-      && /a generated take is refused without a model/.test(rDef.parameters.model.description)
-      && /a voice take is accepted with none/.test(rDef.parameters.model.description)
+      // (T-930 contract change, 2026-11-26, at the operator-s word "2.2 ok" on the ruling "Cut only the
+      // duplication, not the warnings - the refusal text is where the fact belongs": the same rule was
+      // restated per kind across the parameters of one tool. It is stated once now. Re-expressed, not dropped -
+      // AGENTS.md 8.5.)
+      /Leaving it out is refused for every kind except a voice take/.test(rDef.parameters.model.description)
+      && /the refusal names the read that lists what the slot serves/.test(rDef.parameters.model.description)
       // (T-892 contract change, 2026-11-19: this clause pinned the carried name on the transcription kinds. The tool
       // now refuses those kinds instead, so the same clause pins the sentence that replaced it. Re-expressed, not
       // dropped — AGENTS.md 8.5.)
-      && /a transcription or a speaker analysis is refused without one, by this tool, before it asks the lane for anything/.test(rDef.parameters.model.description)
+      // (T-930 contract change, same ruling: that per-kind sentence is one sentence now, so this clause pins what
+      // replaces it — the pointer to the read the refusal itself names. The host-side clauses below still pin the
+      // door: no carried default on either leg.)
+      && /audio_status \(slot_models\)/.test(rDef.parameters.model.description)
       && /if \(!body\.model \|\| !isSafeToken\(body\.model\)\)/.test(HOST)
       // T-875 contract change (2026-11-16). This clause pinned the carried default on the batch leg. The
       // operator-s ruling on TODOS item 62 was "No default: the caller names a model", so the same clause now
       // pins the opposite fact on the same two sides of the seam: the default is gone from the host, the
       // refusal that replaces it is there, and the description names that outcome. Nothing else here moved.
-      && /a scene or a plan is refused without one/.test(rDef.parameters.model.description)
+      // (T-930 contract change, 2026-11-26, same ruling: the per-kind sentence — scene, plan, transcription, take,
+      // generate — is one sentence now, so this clause pins that sentence. The host-side clauses below still pin
+      // the fact this card was about: no leg of the lane carries a carried default.)
+      && /Leaving it out is refused for every kind except a voice take/.test(rDef.parameters.model.description)
       && !/body\.model \|\| 'moss_ttsd'/.test(HOST)
       && /a batch needs a model named/.test(HOST)
       // (T-892 contract change, 2026-11-19: this clause pinned the transcription door-s carried name on the host side.
@@ -543,7 +552,7 @@ function makeToolCtx(lane, agents) {
     // unchanged; only the host default it cross-checks moved spelling. Re-expressed, not dropped — AGENTS.md 8.5.)
     ok('T-852 C: on analysis the model names the transcription model, and the speaker-separation model is named as something this tool does not name — which is what the host carries',
       /On analysis this names the transcription model/.test(rDef.parameters.model.description)
-      && /speaker-separation model is the lane's own and this tool does not name it/.test(rDef.parameters.model.description)
+      && /speaker-separation model is the lane's own and is not named here/.test(rDef.parameters.model.description)
       && /asr_model: args\.model/.test(srcJ9)
       && /var DIAR_DEFAULT_MODEL663 = 'nemotron-3-diar'/.test(HOST),
       rDef.parameters.model.description.slice(0, 400));
@@ -556,9 +565,13 @@ function makeToolCtx(lane, agents) {
 
     ok('T-852 E: the refusal-before-a-row claim is narrowed to the gate that exists, and the voice half moved onto the voice parameter, where the host-s own branch lives',
       !/A model or a voice the lane does not have is refused/.test(rDef.description)
-      && /A model the slot this job aims at does not serve is refused before anything is queued/.test(rDef.description)
-      && /A name the registry holds is staged to the engine as a sample/.test(rDef.parameters.voice.description)
-      && /a name it does not hold is sent to the engine as a name/.test(rDef.parameters.voice.description)
+      && /A model the slot does not serve is refused/.test(rDef.description)
+      // (T-930 contract change, 2026-11-26, at the operator-s word "2.2 ok" on the ruling "Cut only the
+      // duplication, not the warnings - the refusal text is where the fact belongs": the same rule was
+      // restated per kind across the parameters of one tool. It is stated once now. Re-expressed, not dropped -
+      // AGENTS.md 8.5.)
+      && /A name the registry holds is used as a sample/.test(rDef.parameters.voice.description)
+      && /any other name is passed to the engine as a name/.test(rDef.parameters.voice.description)
       && /pluginVoiceFor\(voice\) \? 'upload' : 'name'/.test(HOST),
       { tool_description: rDef.description, voice_description: rDef.parameters.voice.description });
 
@@ -691,7 +704,12 @@ function makeToolCtx(lane, agents) {
     ok('T-899: the door is described where a caller reads it — the kind sentence and the tool sentence both say a conversion exists, and both say the lane stages the reference',
       /convert turns audio that already exists on the lane into a registered voice/.test(String(k9Def.parameters.kind.description))
       && /voice conversion of a row that already holds audio/.test(String(k9Def.description))
-      && /lane stages that voice-s own sample/.test(String(k9Def.parameters.target_voice.description)),
+      // (T-930 contract change, at the operator-s word "2.2 ok" on the ruling "cut only the duplication, not the
+      // warnings - the refusal text is where the fact belongs"): the staging mechanism left the definition on
+      // purpose, so the door is checked for the kind and for the two inputs a caller must name.
+      && /the row that holds the audio to convert/.test(String(k9Def.parameters.source_job_id.description))
+      && /the registered voice to convert the source into/.test(String(k9Def.parameters.target_voice.description))
+      && !/lane stages/.test(String(k9Def.parameters.target_voice.description)),
       { kind: String(k9Def.parameters.kind.description).slice(-180) });
     ok('T-899: the refusals carry no model name and no voice name — the door points at reads, exactly as the other kinds do, so nothing in the tool half becomes a model choice',
       !/[A-Za-z0-9_-]+_vc_model/.test(String(cvNoModel9.error)) && !/kael/.test(String(cvNoVoice9.error)),

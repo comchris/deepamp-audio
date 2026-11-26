@@ -1289,7 +1289,11 @@ function voidViolations(runtime) {
     // Primary row included - so the two Primary rows here carry exactly two of them, under the new name. (A
     // registered row's controls carry no ctlCls, which is why they are not counted in this list.)
     if (ctls.filter(function (t) { return t === 'remove'; }).length !== 2) throw new Error('remove controls: ' + ctls.join('|'));
-    if (ctls.filter(function (t) { return t === 'batch off' || t === 'batch on'; }).length !== 1) throw new Error('batch must be a tts-only control: ' + ctls.join('|'));
+    // T-921 CONTRACT CHANGE (operator, 2026-11-25: "the 'batch' option is to complicated... set it to true
+    // for all TTS endpoints, remove the buttons"). This line used to count exactly ONE batch control and
+    // demand it be tts-only. There is no batch control on any row now, on either lane — the flag is a
+    // host-side value that is always true, and the control over where a batch part goes is the pin.
+    if (ctls.filter(function (t) { return t === 'batch off' || t === 'batch on'; }).length !== 0) throw new Error('T-921: no row may carry a batch control: ' + ctls.join('|'));
     const slots = withCls(tree, 'audio-play-ep-slot').map(ownTxt).join('|');
     // T-235 contract change: the four slots are still exactly these four, in the same order and
     // the same vocabulary — the primary slot now also names itself, and a registered row names
@@ -1361,10 +1365,13 @@ function voidViolations(runtime) {
       // T-300 U-7 CONTRACT CHANGE (user request 2026-10-12: "pause is not needed"): the core control set
       // every endpoint row must carry lost 'pause'. It is still one identical set per group, which is
       // what this block exists to prove.
-      // T-499: the core set names the states, not the presses - an endpoint in play says `enabled`, a tts row
-      // whose batch is allowed says `batch on`.
+      // T-499: the core set names the states, not the presses - an endpoint in play says `enabled`, and until
+      // T-921 a tts row whose batch was allowed said `batch on`.
+      // T-921 CONTRACT CHANGE (operator, 2026-11-25: "set it to true for all TTS endpoints, remove the
+      // buttons"): the batch control is off the row, so both lanes now carry the SAME core set — which is
+      // what this block exists to prove, and it is now proved one level more strictly.
       // T-655 (2026-10-26): `models` and `check` merged into the row's one `read now` control.
-      { name: 'tts', core: ['enabled', 'batch on', 'read now'], slots: ['TTS1', 'TTS2', 'TTS3'] },
+      { name: 'tts', core: ['enabled', 'read now'], slots: ['TTS1', 'TTS2', 'TTS3'] },
       { name: 'stt', core: ['enabled', 'read now'], slots: ['STT1', 'STT2', 'STT3'] },
     ];
     groups.forEach(function (g) {
@@ -3731,20 +3738,36 @@ function voidViolations(runtime) {
     if (claims.length) throw new Error('a preset count was claimed on a lane that answered none: ' + claims.map(function (e) { return ownTxt(e); }).join(' || '));
   });
 
-  await attempt('T-229: a kind no model serves is listed DISABLED and says so, never selectable, never an empty model list', async function () {
+  // T-924 CONTRACT CHANGE (2026-11-26, the operator, verbatim: "The available ui-selections should actually never
+  // result from a single endpoint's feature set as user might want to set other endpoint … convert into an overall
+  // fix on all fronts and do so", and "make selectable even if no model found for the section"). The label of this
+  // attempt used to read "…is listed DISABLED and says so, never selectable". The gap is still shown and still
+  // labelled, and it is no longer disabled: picking it is how a person reaches the other slot of the lane. Every
+  // other clause — the kind list covers the vocabulary, an unserved kind says so plainly, the served kinds are
+  // unchanged, and a served kind never renders an empty model list — is kept and measured unchanged.
+  await attempt('T-229 (T-924 contract change): a kind no model serves is listed and says so, and it is selectable rather than disabled', async function () {
     const m = t229Mount(T229_TTS, []);   // no tool models on this fleet
     await openAllSections(m.run, m.comp);
     const tree = m.run.rt.created.slice();
     const opts = t229KindOpts(tree);
     if (!opts) throw new Error('no .audio-play-kind select rendered');
-    const off = opts.filter(function (o) { return o.disabled; }).map(function (o) { return o.value; });
+    const off = opts.filter(function (o) { return /no model on this slot/.test(o.label); }).map(function (o) { return o.value; });
     if (off.join(',') !== 'sep,gen,vc,s2s') throw new Error('unserved kinds: ' + off.join(','));
-    const unserved = opts.filter(function (o) { return o.disabled; });
-    if (!unserved.every(function (o) { return /no model on this fleet/.test(o.label); })) throw new Error('an unserved kind does not say so plainly: ' + unserved.map(function (o) { return o.label; }).join(' | '));
-    if (opts.filter(function (o) { return !o.disabled; }).map(function (o) { return o.value; }).join(',') !== 'tts,clon,vdes') throw new Error('served kinds changed: ' + opts.map(function (o) { return o.value; }).join(','));
-    // And the model select is never empty for the kind that IS selected.
-    const groups = t229Groups(tree);
-    if (!groups || !groups.length || !groups[0].options.length) throw new Error('the model list is empty for a served kind');
+    const unserved = opts.filter(function (o) { return /no model on this slot/.test(o.label); });
+    if (!unserved.every(function (o) { return !o.disabled; })) throw new Error('an unserved kind is still disabled: ' + unserved.map(function (o) { return o.value; }).join(' | '));
+    if (opts.filter(function (o) { return !/no model on this slot/.test(o.label); }).map(function (o) { return o.value; }).join(',') !== 'tts,clon,vdes') throw new Error('served kinds changed: ' + opts.map(function (o) { return o.value; }).join(','));
+    // A served kind never renders an empty model list — the clause this attempt carried, kept unchanged.
+    const groups0 = t229Groups(tree);
+    if (!groups0 || !groups0.length || !groups0[0].options.length) throw new Error('the model list is empty for a served kind');
+    // A kind the slot cannot serve is a PICKED kind with an empty model list that says what it is — never a silent
+    // move to another kind. This is the shape the old "never an empty model list" clause guarded; the sentence it
+    // guards now is the one the operator asked for.
+    const tree2 = await t229Drive(m, 'gen');
+    const kindNow = t229Sel(tree2, 'audio-play-kind');
+    if (!kindNow || String(kindNow.props.value || '') !== 'gen') throw new Error('picking an unserved kind moved the form to: ' + String((kindNow || {}).props.value));
+    const modelNode = t229Sel(tree2, 'audio-play-model');
+    const emptyLine = flatKids(modelNode || {}).filter(function (e) { return e && e.type === 'option' && /no model serves/i.test(ownTxt(e)); }).map(function (e) { return ownTxt(e); });
+    if (!modelNode || String(modelNode.props.value || '') !== '' || !emptyLine.length) throw new Error('the empty model line is not what it should be: ' + JSON.stringify(emptyLine));
     const bad = voidViolations(m.run);
     if (bad.length) throw new Error(bad.length + ' void element(s) carry children');
   });
@@ -4738,7 +4761,12 @@ function voidViolations(runtime) {
       throw new Error('the wordless-row classifier is not defined once and used in exactly its two places (chip, hover): ' + JSON.stringify({ uses: uses611, defs: defs611 }));
   });
 
-  await attempt('T-626: the endpoint row shows the engine build a person RECORDED, and says "build not recorded" when nobody did', async function () {
+  // T-928 (`TODOS.md` part one item 71, the operator-s word of 2026-11-26: "Retire it") renamed this attempt.
+  // T-626 built the row that showed a build a person had recorded; T-741 taught the engine to answer for
+  // itself, and one row carrying two build claims is what the operator ruled retired. The fixture still
+  // carries a hand-written value on two rows, because a state file written before the retirement still
+  // carries one - what is pinned now is that the row ignores it.
+  await attempt('T-928 (was T-626/T-915): an endpoint row shows the engine-s own build, and says it has not read one', async function () {
     const loose626 = createRuntime({ strictVoid: true });
     const BUILD626R = 'v0.9.2-drama3-base-small-26-g0125a991';
     // T-915: the engine-s own answer for the same slot, in the shape the host carries it (the version string the
@@ -4761,9 +4789,10 @@ function voidViolations(runtime) {
             batch_allowed: true, models: [], models_source: '', models_at: 0, online: null, checked_at: 0, health_error: '',
             held_by: '', hold_reason: '', held_at: 0, loaded_models: [], loaded_at: 0, backend: '', last_used_at: 0,
             build: fn === 'tts' ? BUILD626R : '', build_at: fn === 'tts' ? 1760000000000 : 0 },
-          // T-915 (2026-11-23, TODOS item 71): two rows now carry the engine-s own answer beside what a person
-          // wrote down — e-1 has BOTH (the case that was measured live: a slot whose recorded value named a build
-          // many commits behind, answering its own current build in the same record), and e-2 has only the engine-s
+          // T-915 (2026-11-23, TODOS item 71) put the engine-s own answer beside the hand-written value; T-928
+          // retired the hand-written half on the same item. The shape is kept on purpose - e-1 carries BOTH, as a
+          // state file written before the retirement does - and what the row must do with the first of them is
+          // exactly what this fixture now pins: show the engine-s answer and ignore the rest.
           // answer. The tts primary keeps a hand-recorded value and no engine answer, which is the case the old
           // wording was written for and still describes.
           endpoints: fn === 'tts' ? [mk('e-1', { build: BUILD626R, build_at: 1760000000000,
@@ -4789,53 +4818,34 @@ function voidViolations(runtime) {
     if (tags.length !== 4) throw new Error('build tags: ' + tags.length + ' (expected one per endpoint row: 3 tts + 1 stt primary)');
     const texts = tags.map(own626);
     const rec = texts.filter(function (x) { return x === BUILD626R; });
-    const gap = texts.filter(function (x) { return x === 'build not recorded'; });
+    const gap = texts.filter(function (x) { return x === 'build not read'; });
     const live = texts.filter(function (x) { return x === BUILD626LIVE; });
-    // (T-915 contract change, 2026-11-23, at the operator-s word on TODOS item 71.) This pair read `rec 2 / gap 2`
-    // against a fixture in which no row carried an engine answer, because none existed. The fixture now carries one
-    // on two rows, so the honest counts are: one row shows a hand-recorded value, one row says nothing has been
-    // recorded and nothing has been asked, and two rows show the engine-s own answer.
-    if (rec.length !== 1) throw new Error('hand-recorded builds shown: ' + rec.length + ' (expected the tts Primary only): ' + texts.join(' | '));
-    if (gap.length !== 1) throw new Error('rows that have neither said so: ' + gap.length + ' (expected the stt Primary only): ' + texts.join(' | '));
+    // (T-928 contract change, 2026-11-26.) This triple read `rec 1 / gap 1 / live 2`: a row with no engine answer
+    // showed the value a person had written down. That second claim on a row is what was retired, so the honest
+    // counts are: no row shows a hand-written string, two rows say nothing has been read, two rows answer.
+    if (rec.length !== 0) throw new Error('a row still shows a hand-recorded build: ' + texts.join(' | '));
+    if (gap.length !== 2) throw new Error('rows that have not asked this engine: ' + gap.length + ' (expected the tts Primary and the stt Primary): ' + texts.join(' | '));
     if (live.length !== 2) throw new Error('rows showing the engine-s own answer: ' + live.length + ' (expected e-1 and e-2): ' + texts.join(' | '));
-    if (/v0\.9\.2-drama3/.test(texts.filter(function (x) { return x !== BUILD626R; }).join(' | ')))
-      throw new Error('a row that has an engine answer still shows the hand-recorded string');
-    // The hover is where the honesty lives: a recorded value says WHEN it was recorded and that the plugin
-    // cannot measure it; an unrecorded row says the value has to be written down by hand. The second half of
-    // that sentence used to read 'an unrecorded row names the verb that records it', and U-18 (2026-10-22)
-    // says a hover names no verb - the re-point of the check is below.
-    const recTag = tags.filter(function (e) { return own626(e) === BUILD626R; })[0];
-    const gapTag = tags.filter(function (e) { return own626(e) === 'build not recorded'; })[0];
-    const tipRec = String((recTag.props || {}).title || '');
+    if (/v0\.9\.2-drama3/.test(texts.join(' | '))) throw new Error('a hand-recorded build reached the row at all: ' + texts.join(' | '));
+    // The hover is where the honesty lives, and it is the same honesty T-626 was built for: a row says what it
+    // knows, and says plainly when it has not asked. U-18 (2026-10-22) still holds, a hover names
+    // no route verb and no request field, and AGENTS 5.19 still caps it at three short clauses.
+    const liveTags626 = tags.filter(function (e) { return own626(e) === BUILD626LIVE; });
+    const gapTag = tags.filter(function (e) { return own626(e) === 'build not read'; })[0];
+    if (!gapTag) throw new Error('no row says it has not read a build from this engine');
     const tipGap = String((gapTag.props || {}).title || '');
-    // U-18 RE-POINT (2026-10-22): tests/tooltips.test.cjs caught this hover naming a route verb, and the panel's own
-    // policy says a hover speaks in user words and names no verb and no request field. What the hover must still say
-    // is the honesty itself: a recorded value is a person's written-down value, the plugin cannot measure it, and an
-    // unrecorded row says the number has to be written down by hand off the node's own checkout.
-    if (!/recorded /.test(tipRec) || !/wrote down by hand/.test(tipRec))
-      throw new Error('the recorded hover does not say it is a value a person wrote down: ' + tipRec.slice(0, 160));
-    // (T-915 contract change, 2026-11-23.) This pin read the exact sentence "The plugin cannot measure it", which
-    // the panel wrote when no engine answer carried a build at all (measured 2026-10-21). That premise is gone —
-    // the host has read the engine-s own answer since T-741 — so the sentence was corrected rather than kept. What
-    // the hover must still carry, and what this still pins, is the honesty itself: a recorded value is a person-s
-    // written-down value, and this row shows it only because the engine has not answered for itself.
-    if (!/has not answered what it is running/.test(tipRec) || !/wrote down by hand/.test(tipRec))
-      throw new Error('the recorded hover no longer says whose value this is and why it is being shown: ' + tipRec.slice(0, 200));
-    if (!/no engine build recorded for this endpoint/.test(tipGap) || !/written down by hand/.test(tipGap) || /endpoint_update/.test(tipGap))
-      throw new Error('the empty hover lost the honesty or named a route verb: ' + tipGap.slice(0, 160));
-    // T-915 (2026-11-23, at the operator-s word on TODOS item 71). The fault was measured on the live lane: one
-    // slot record carried `build:"v0.9.3-52-g76e99236"` beside a live `engine_build:"dev 9999a82e 2026-11-23"`,
-    // and the panel showed the first. So: where an engine answer exists the row shows it, and where a hand-written
-    // value disagrees the row says so rather than quietly dropping it. Three lines is the hover ceiling this panel
-    // holds (AGENTS 5.19), so the pair is named in two.
-    const bothTags626 = tags.filter(function (e) { return own626(e) === BUILD626LIVE; });
-    if (bothTags626.length !== 2) throw new Error('rows showing the engine answer: ' + bothTags626.length);
-    const tipBoth626 = bothTags626.map(function (e) { return String((e.props || {}).title || ''); });
-    if (!tipBoth626.some(function (t) { return /the engine answered this about itself/.test(t) && /earlier says v0\.9\.2-drama3/.test(t) && /is not what this row shows/.test(t); }))
-      throw new Error('the row that has both does not name whose answer it shows and which value it dropped: ' + tipBoth626.join(' || ').slice(0, 240));
-    if (!tipBoth626.some(function (t) { return /the engine answered this about itself/.test(t) && !/earlier says/.test(t); }))
-      throw new Error('a row whose only source is the engine-s answer invented a hand-written value beside it');
-    tipBoth626.forEach(function (t) {
+    if (!/no build read from this engine yet/.test(tipGap) || !/written down by hand/.test(tipGap) || /endpoint_update|endpoint_models|endpoint_registry/.test(tipGap))
+      throw new Error('the no-answer hover lost the honesty or named a route verb: ' + tipGap.slice(0, 160));
+    if ((tipGap.match(/\n/g) || []).length > 2) throw new Error('the no-answer hover is over three lines: ' + tipGap.length + ' chars');
+    if (liveTags626.length !== 2) throw new Error('rows showing the engine answer: ' + liveTags626.length);
+    const tipLive = liveTags626.map(function (e) { return String((e.props || {}).title || ''); });
+    tipLive.forEach(function (t) {
+      if (!/the build this engine answered about itself/.test(t))
+        throw new Error('the engine-answer hover does not say whose answer it shows: ' + t.slice(0, 200));
+      // (T-928) The T-915 half that named a disagreeing hand-written value beside the live one is gone with the
+      // field: a row no longer has a second build to name, and an answer must not invent one.
+      if (/earlier says|written down by hand/.test(t))
+        throw new Error('the engine-answer hover still carries a retired second value: ' + t.slice(0, 200));
       if ((t.match(/\n/g) || []).length > 2) throw new Error('the engine-answer hover is over three lines: ' + t.length + ' chars');
     });
     // T-219 guarantee, applied to the new span: it may shrink and clip, it may not force a horizontal bar.
@@ -4847,8 +4857,12 @@ function voidViolations(runtime) {
     const src626 = require('fs').readFileSync(TARGET, 'utf8');
     if ((src626.match(/BuildTag626\(/g) || []).length !== 2)
       throw new Error('BuildTag626 is not defined once and rendered once: ' + (src626.match(/BuildTag626\(/g) || []).length);
-    if (!/build: String\(\(manageable && p && p\.build\) \|\| ""\)/.test(src626) || !/build_at: \(manageable && p\) \? \(Number\(p\.build_at\) \|\| 0\) : 0/.test(src626))
-      throw new Error('the Primary row no longer carries the two recorded-build keys with the null guard it needs');
+    // (T-928 contract change.) This pin required the Primary row model to carry the two recorded-build keys under a
+    // null guard. Those keys leave the answer, so the row model carries the engine keys and no retired key beside
+    // them - the guard is what the check is still about.
+    if (!/engine_build: String\(\(manageable && p && p\.engine_build\) \|\| ""\)/.test(src626)
+      || /build: String\(\(manageable && p && p\.build\)/.test(src626))
+      throw new Error('the Primary row no longer carries the engine-build keys with the guard it needs, or still carries a retired one');
   });
 
   // T-635 (operator 2026-10-23, verbatim): "jobs like ap 0176 should have a view button, too" and "view buttons

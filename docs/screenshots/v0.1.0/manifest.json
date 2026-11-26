@@ -183,6 +183,16 @@
    "bytes": 251494,
    "sha12": "0563660bf407",
    "note": "the multi-speaker dialogue edit window on its own, asked for by the operator 2026-11-14; example typed into the scene field, no batch saved, nothing dispatched"
+  },
+  {
+   "from": "manual: the README hero frame, added 2026-11-25; not produced by the capture round that named the other frames",
+   "file": "docs/screenshots/v0.1.0/hero_player_music.png",
+   "px": [
+    743,
+    955
+   ],
+   "bytes": 191192,
+   "sha12": "31eb1fc23491"
   }
  ]
 }

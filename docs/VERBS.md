@@ -75,7 +75,7 @@ answers — is read in the session that needs it, never copied here.
 
 | Route | Method | What it does | What it answers, or refuses |
 |---|---|---|---|
-| `get_models` | GET only `?fn=tts\|stt` | The catalog for one lane, as this plugin holds it. | Per model: id, family, task, mode, quant, path, loaded, and the clone flags. |
+| `get_models` | GET only `?fn=tts\|stt` (optionally `&id=primary\|e-<digits>`) | The catalog for one lane, as this plugin holds it. With `id`, that one slot's own `/v1/models`, read now and held as that slot's answer (T-922). | Per model: id, family, task, mode, quant, path, loaded, and the clone flags, plus `served_by` naming the slot the row was read from. The answer also carries `fleet.slots` — the lane's slots and what was last held about each — and a `fleet.note` when another slot declares models this list does not carry. |
 | `endpoint_models` | POST only `{fn, id}` | What **one slot** serves, read from that engine and stored. | The list, plus `models_raw` (what the engine really answered), `models_bounded` (whether a bound cut it) and `capability_partial`. A bare `{fn}` is refused: `id is required (e-<digits>, from endpoint_registry)`. |
 | `endpoint_library` | GET only `?fn[&id][&fresh=1]` | What an engine **owns on disk**, joined to the lane's configured rows. Answers per endpoint on purpose. `fresh=1` skips the five-minute cache. | An engine without its UI management answers that it has no library. |
 | `model_capabilities` | GET or POST | The capability record for a family: the parameters a request may carry, their types and defaults, and the parameters that record says a request **must** carry. | A family with no record says so rather than guessing. |
@@ -212,6 +212,7 @@ reported as held, not done.
 11. `id is required (e-<digits>, from endpoint_registry)` — `endpoint_models` with no slot named.
 12. `method not allowed` — the wrong method, before anything runs.
 13. `unknown route` — a name the dispatcher does not have. Check the spelling before believing it is a missing feature: a label pasted into a URL produces this too (`job_timeout(no-op)` did).
+14. `this origin is not allowed on the audio lane: the request carries Origin "<x>", which is not the address this server is answering. A program that sends no Origin (curl, a script) is unaffected.` — a request that carries an `Origin` from **another address**. Answered **403**, before the body is read: the only 4xx on this surface that is not about the body. The panel is same-origin, so it is never seen; a caller with no `Origin` at all is never seen. This is the request policy this route owner takes (`dsh-host-webserver` says route owners enforce their own) and it is **not** authentication (`CHANGELOG.md` T-931, `TODOS.md` item 117).
 
 Every one of these happens **before a row exists**: no id spent, nothing counted against a ceiling. A refusal is a
 fact about the request, not a fault in the lane.
