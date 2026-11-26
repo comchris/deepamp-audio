@@ -7,7 +7,7 @@ Please verify its source and assess any risks before using it.
 
 ## 1. Humanoid-UI-sections
 
-0. Player-window — includes DOT-MATRIX-Display-technology, 24h-clock, infinite music generation button 
+0. [Player-window](docs/DETAILS_PLAYLIST.md) — includes DOT-MATRIX-Display-technology, 24h-clock, infinite music generation button
 1. [Playlist](docs/DETAILS_PLAYLIST.md) — One line per job/file. Optional: import of external streams
 2. [Models](docs/DETAILS_MODELS.md) — Model database imported from audio.cpp
 3. [Voices](docs/DETAILS_VOICES.md) — Local voice sample generation and tracking
@@ -29,23 +29,26 @@ Please verify its source and assess any risks before using it.
    slots that exist: a candidate on a machine holding none of this plugin's running jobs is chosen before one on a
    machine that already holds one. Allows ASYNC job processing across multiple CPUs/GPUs in the LAN. 
 **What you can ask it for**
-   1) A single-voice take in a registered voice — `audio_render {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}`.
+   1) A single-voice take in a registered voice — `audio_render {kind:"take", model:"<from audio_status slot_models>",
+      text:"Hello from DEEPAMP.", voice:"ent_data"}`.
    2) A music or effect take from a prompt, with a length named or not —
       `audio_render {kind:"generate", model:"…", text:"rain on a tin roof", duration_seconds:5}`. A take that names no
       length is filled from that model's own engine record, and the row says which record it came from.
    3) A multi-voice scene, rendered as bounded takes across the "TTSD" endpoints —
-      `audio_render {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}`. 
-   5) A transcription, which separates the speakers and transcribes each one.
-   6) A preset under `texts/presets/<folder>/`: the prompt, the side its folder names, and the model that preset was
+      `audio_render {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"voice":"voy_janeway","text":"…"}]}` —
+      every line names its speaker. 
+   4) A transcription, which separates the speakers and transcribes each one.
+   5) A preset under `texts/presets/<folder>/`: the prompt, the side its folder names, and the model that preset was
       last run with, reported back on the same listing that offered it.
 **A voice registry that belongs to this front-end.** Voices are registered from a WAV the plugin can read, the
    plugin transcribes the sample for its reference text with the transcription model the caller names - `register` refuses
    without one — and a clone-sample is staged to the target engine before it is asked
-   for; the authority for that number is `audio_voices {what:"list"}`.
+   for; the sample and its measured lengths live on the registry record, `audio_voices {what:"list"}`.
 **An endpoint registry** Which slot exists, whether it answers, what it serves, what it is
    holding: read with `endpoint_registry`, `endpoint_health`, `endpoint_models`, `queue_status`. 
-**Four agent tools, each switchable on its own in DSH Plugin config.** A call needs no model name and no endpoint id: this front-end
-   places the job and refuses what it cannot place.
+**Four agent tools, each switchable on its own in DSH Plugin config.** A call needs no endpoint id: this front-end
+   places the job and refuses what it cannot place. A **model name is required for every kind**, a voice take included —
+   this plugin carries no default for it, and the refusal names the read that lists what the slot serves.
 **optional: Media imports with yt-dlp.** 
 
 ## 2. Architecture
@@ -92,7 +95,7 @@ Please verify its source and assess any risks before using it.
    **What those numbers do and do not say.** They are dated rows, not a promise: the ratio moves with the quant, with
    the length, and with whether anything else is running on that box — measured 2026-11-15, two identical 20-second
    renders on one CPU slot cost 121.8 s and 196.9 s while a compile was competing for the same cores. The small
-   text-only tier of item 5a is under 1× even on a CPU node (0.68× median, measured 2026-11-10), which is the point
+   text-only tier of item 3a is under 1× even on a CPU node (0.68× median, measured 2026-11-10), which is the point
    of the whole architecture: **a node that renders at 0.26× and a node that renders at 4.8×, taking turns, finish
    more audio per hour than either one alone**, and the fast one is what answers a short request while the slow one is
    busy. The plugin carries its own measured copy of these rates in `lib/index.js` and uses it to size a take budget
@@ -106,6 +109,10 @@ Please verify its source and assess any risks before using it.
    load reads the whole file, so a link slower than a local disk shows up as a longer load time on the row, which is
    exactly where you would see it. Measured 2026-11-15 on the share this setup uses: a 1.6 GB package loaded in 0.9 s
    to 2.5 s. Your agent can help ;D
+
+6. **A page must be this page.** `/api/deepamp/*` answers the panel-s own same-origin calls and any caller that sends no
+   `Origin` (a script, `curl`, another process), and refuses a page from another address with 403. Not authentication
+   (`CHANGELOG.md` T-931).
 
 ## 3. What changed recently
    see [CHANGELOG.md](CHANGELOG.md)
@@ -126,7 +133,7 @@ Please verify its source and assess any risks before using it.
    `mix_audio`, the remux controls, the normalization of a voice sample, the conversion of an imported file;
    `yt-dlp` for media capture, which is unavailable unless `ytdlp_path` names the binary. A host without ffmpeg
    renders from an engine perfectly and still cannot register a voice, and the row says so
-   (`ffmpeg is not found on the host running this plugin`) instead of reporting an exit number. Nothing in this
+   (`ffmpeg is not installed on the host running this plugin (exit 127) …`) instead of reporting an exit number. Nothing in this
    list installs an engine, downloads a model, or starts a service.
    And one thing to know before a long take: the wall on an engine request is this plugin-s own. `job_timeout_sec`
    (3600 s by default, read with `GET job_timeout`) is the number that times the call, because the call is run with
@@ -154,8 +161,8 @@ Please verify its source and assess any risks before using it.
    settings live in the browser under `deepamp:*`, not in the plugin store.
 5. **An agent's path is the tools.**
    ```text
-   audio_render  {kind:"take", text:"Hello from DEEPAMP.", voice:"ent_data"}
-   audio_render  {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"text":"…"}]}
+   audio_render  {kind:"take", model:"<from audio_status slot_models>", text:"Hello from DEEPAMP.", voice:"ent_data"}
+   audio_render  {kind:"scene", dialogue:[{"voice":"voy_doctor","text":"…"},{"voice":"voy_janeway","text":"…"}]}
    audio_render  {kind:"transcribe", file_path:"/absolute/path/to/a.wav", model:"<from audio_status slot_models>"}
    audio_render  {kind:"convert", source_job_id:"<a finished row>", target_voice:"<from audio_voices list>", model:"<from audio_status slot_models>"}
    audio_status  {what:"lane"}
@@ -163,7 +170,8 @@ Please verify its source and assess any risks before using it.
    audio_control {what:"play", job_id:"ap-1330"}
    audio_control {what:"auto_gen", mode:"on"}
    ```
-   A second voice left out of a scene line is the model inventing that speaker, not a missing field. `audio_control`
+   Every scene line names its speaker: a line without one is refused before any part row exists. (An invented speaker is
+   the other door — the positional `speakers` list, not a batch line.) `audio_control`
    reaches the browser only while the panel is open — including that last line, which arms the panel's
    auto-generation chain; it starts on the next press of a generation control. `audio_status {what:"lane"}` and the
    playlist and row answers carry that chain's state (`auto_gen`) and mark the rows it started (`auto_started`);

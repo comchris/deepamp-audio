@@ -166,7 +166,7 @@ function renderTool715(audioPlay) {
       model: {
         type: 'string',
         description:
-          'A model the slot this job aims at actually serves. Read it with audio_status (slot_models) first — naming a model from memory is the usual reason a dispatch is refused. On analysis this names the transcription model; the speaker-separation model is the lane\'s own and is not named here. Leaving it out is refused for every kind except a voice take, and the refusal names the read that lists what the slot serves.',
+          'A model the slot this job aims at actually serves. Read it with audio_status (slot_models) first — naming a model from memory is the usual reason a dispatch is refused. On analysis this names the transcription model; the speaker-separation model is the lane\'s own and is not named here. Leaving it out is refused for every kind, a voice take included, and the refusal names the read that lists what the slot serves.',
       },
       file_path: { type: 'string', description: 'For transcribe and analysis: an absolute path to an audio file the plugin may read.' },
       dialogue: {

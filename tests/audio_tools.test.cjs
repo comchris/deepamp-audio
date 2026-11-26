@@ -493,7 +493,12 @@ function makeToolCtx(lane, agents) {
       // duplication, not the warnings - the refusal text is where the fact belongs": the same rule was
       // restated per kind across the parameters of one tool. It is stated once now. Re-expressed, not dropped -
       // AGENTS.md 8.5.)
-      /Leaving it out is refused for every kind except a voice take/.test(rDef.parameters.model.description)
+      // (T-933 contract change, 2026-11-26, at the operator-s word "fix 3" on a read of the README: the exception this
+      // clause pinned was true when T-852 wrote it (2026-11-14) and died with T-890 (2026-11-19), which made an
+      // unnamed take refuse at the door like every other kind — `a take needs a model named` at `lib/index.js:15367`,
+      // itself pinned at `tests/host.test.cjs:2305` and driven from the tool at line 527 below. Re-expressed to what
+      // the host runs now, not dropped — AGENTS.md 8.5.)
+      /Leaving it out is refused for every kind, a voice take included/.test(rDef.parameters.model.description)
       && /the refusal names the read that lists what the slot serves/.test(rDef.parameters.model.description)
       // (T-892 contract change, 2026-11-19: this clause pinned the carried name on the transcription kinds. The tool
       // now refuses those kinds instead, so the same clause pins the sentence that replaced it. Re-expressed, not
@@ -510,7 +515,9 @@ function makeToolCtx(lane, agents) {
       // (T-930 contract change, 2026-11-26, same ruling: the per-kind sentence — scene, plan, transcription, take,
       // generate — is one sentence now, so this clause pins that sentence. The host-side clauses below still pin
       // the fact this card was about: no leg of the lane carries a carried default.)
-      && /Leaving it out is refused for every kind except a voice take/.test(rDef.parameters.model.description)
+      // (T-933 contract change, 2026-11-26, same ruling as the clause above: the voice-take exception is gone. The
+      // host-side clauses here still pin the door — no leg of the lane carries a carried default.)
+      && /Leaving it out is refused for every kind, a voice take included/.test(rDef.parameters.model.description)
       && !/body\.model \|\| 'moss_ttsd'/.test(HOST)
       && /a batch needs a model named/.test(HOST)
       // (T-892 contract change, 2026-11-19: this clause pinned the transcription door-s carried name on the host side.
