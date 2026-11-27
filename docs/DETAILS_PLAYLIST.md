@@ -22,6 +22,6 @@ Playlist is for the rows this plugin has produced, and for playing them back.
    4. `clear failed` takes out the rows that never produced a playable take — the lane's own failure, a job a person stopped, and a job taken out of the line before it ran.
    5. `pause` on a lane is not switching an endpoint off. Endpoints are switched off in [DETAILS_ENDPOINTS.md](DETAILS_ENDPOINTS.md). A job already running finishes.
 
-4. **Details.** `auto play` hands over in the order the lane made the rows, and a row that is still rendering is waited for rather than skipped. A crossfade needs a take long enough to fade: the floor is three fade-lengths, so at the default 2.5 s nothing under 7.5 s is faded, and a row whose prompt came from an `sfx` preset folder is never the side a fade moves. The rules behind that are `../AGENTS.md` 11.8 and 11.18.
+4. **Details.** `auto play` hands over in the order the lane made the rows, and a row that is still rendering is waited for rather than skipped. A crossfade needs a take long enough to fade: the floor is three fade-lengths, so at the default 2.5 s nothing under 7.5 s is faded, and a row whose prompt came from an `sfx` preset folder is never the side a fade moves. The rules behind that are `AGENTS.md` 11.8 and 11.18.
 
 **Also:** [../README.md](../README.md) for the verbs, [../AGENTS.md](../AGENTS.md) for the rules, [../CHANGELOG.md](../CHANGELOG.md) for what changed.

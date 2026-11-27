@@ -21736,9 +21736,13 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     ok('T-786 source: the list is a Settings value and not a Config field — written only when it differs from the default, revalidated host by host on load, and the cached station answer is dropped when the list changes',
       (function () {
         const src458 = require('fs').readFileSync(LIB, 'utf8');
-        const cfgLine = String((src458.split('\n').find(function (l458) {
-          return /'generation_ceiling_s', 'perf_log', 'import_outside_store', 'takes_limit', 'stt_feed'\];/.test(l458);
-        }) || ''));
+        // (T-935 anchor change, 2026-11-27: this locator found the Config-key list by its LAST entry, and that
+        // line gained a key on this card, so the locator went blind. The claim pinned here is untouched — the
+        // station list is a Settings value and is not in the Config-key list — and the locator is now stronger:
+        // it finds the list by its own declaration, whatever it carries.)
+        const lines458 = src458.split('\n');
+        const at458 = lines458.findIndex(function (l458) { return /var CFG_KEYS716 = \[/.test(l458); });
+        const cfgLine = at458 < 0 ? '' : String(lines458[at458] + '\n' + (lines458[at458 + 1] || ''));
         const snap = /station_hosts: stationHostsAtDefault450\(\) \? undefined : stationHosts450\.slice\(\)/.test(src458);
         const load = /if \(Array\.isArray\(s\.station_hosts\)\)/.test(src458) && /stationHostsClean450\(s\.station_hosts\)/.test(src458);
         const route = /stationHosts450 = shNext458\.hosts;[\s\S]{0,240}stationTitleAnswer450 = null;[\s\S]{0,240}scheduleSave\(\);/.test(src458);
@@ -22032,6 +22036,120 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
       && /path: '\/deepamp', handler: serveAudio/.test(SRC931)
       && !/function serveAudio[\s\S]{0,400}sameOrigin931/.test(SRC931),
     { calls: (SRC931.match(/sameOrigin931\(/g) || []).length });
+
+  // ---------------------------------------------------------------- T-935 (2026-11-27): the origin door is a declared setting.
+  // `TODOS.md` item 126, at the operator-s word: "our same origin protection against others accessing the api will
+  // need an options in settings, so that if some user is using a different host ip to access it can still use the
+  // plugin, right ? ... (no everybody forwards to local 127.0.0.1)". The shape is the harness-s own, read at
+  // `dsh-client-connection/src/api-request-trust.ts` and recorded in `docs/FACTS.md`: a declared list of authorities
+  // beside same-origin, each validated to canonical form at load, a port-less entry answering any port, and no
+  // trust in a forwarded header. Two of these pins exist to hold the OLD behaviour: with nothing declared, T-931 is
+  // the whole rule, and this card changes nothing about that.
+  {
+    const api935of = function (bag935) {
+      return bag935.registered.find(function (r935) { return r935.path === '/api/deepamp'; }).handler;
+    };
+    const policy935 = async function (h935) {
+      const r935 = await call(h935, '/api/deepamp/origin_policy', 'GET');
+      return { code: r935.code, json: JSON.parse(String(r935.body)) };
+    };
+    const H935HOST = '127.0.0.1:3080';
+
+    // (a) nothing declared: the closed door, and a read that says so instead of leaving a session to guess.
+    const D935 = makeCtx({ audit: true });
+    mod.apply(D935.ctx);
+    await tick(80);
+    const h935d = api935of(D935.bag);
+    const rd935d = await policy935(h935d);
+    ok('T-935: with no Config the lane answers its own origin only, and the read names that as the default',
+      rd935d.code === 200 && rd935d.json.ok === true && rd935d.json.same_origin_only === true
+      && rd935d.json.wildcard === false && rd935d.json.allowed.length === 0
+      && rd935d.json.source === 'default', rd935d.json);
+    const rd935dPost = await call(h935d, '/api/deepamp/origin_policy', 'POST', { allowed: ['x.example'] });
+    ok('T-935: the door is read-only from this side — the policy verb has no write half, so no caller of the API widens it',
+      rd935dPost.code === 405, { code: rd935dPost.code });
+    const rd935dForeign = await call(h935d, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://elsewhere.example:3080', host: H935HOST });
+    ok('T-935: with nothing declared a foreign page is refused exactly as T-931 refused it, and the refusal now names the door',
+      rd935dForeign.code === 403 && /no Origin/.test(String(rd935dForeign.body))
+      && /allowed_origins/.test(String(rd935dForeign.body)) && /origin_policy/.test(String(rd935dForeign.body)),
+      { code: rd935dForeign.code, body: String(rd935dForeign.body).slice(0, 200) });
+    const rd935dList = rd935d.json.listener;
+    ok('T-935: a carrier that answers nothing is reported as unanswered — the listener origin is never guessed from the request',
+      rd935dList.read === false && rd935dList.origin === '' && rd935dList.port === null, rd935dList);
+
+    // (b) a declared list: the two entries are the door, and the read says so with the source named.
+    const C935 = makeCtx({ audit: true });
+    mod.apply(C935.ctx, { allowed_origins: ['elsewhere.example', '10.0.0.7:3080'] });
+    await tick(80);
+    const h935c = api935of(C935.bag);
+    const rc935 = await policy935(h935c);
+    ok('T-935: a declared allow-list is the policy the lane runs with, and the read names its source as the Config',
+      rc935.json.same_origin_only === false && rc935.json.wildcard === false
+      && rc935.json.allowed.join(',') === 'elsewhere.example,10.0.0.7:3080' && rc935.json.source === 'config',
+      rc935.json);
+    const ok935AnyPort = await call(h935c, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://elsewhere.example:9999', host: H935HOST });
+    const ok935Exact = await call(h935c, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://10.0.0.7:3080', host: H935HOST });
+    ok('T-935: a port-less entry answers its host on any port, and an entry that names a port answers that authority only',
+      ok935AnyPort.code === 200 && ok935Exact.code === 200, { any_port: ok935AnyPort.code, exact: ok935Exact.code });
+    const no935Port = await call(h935c, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://10.0.0.7:9099', host: H935HOST });
+    const no935Other = await call(h935c, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://somewhere-else.example', host: H935HOST });
+    ok('T-935: widening the door does not open it — a port the list did not name and a host the list does not carry are both refused',
+      no935Port.code === 403 && no935Other.code === 403, { other_port: no935Port.code, other_host: no935Other.code });
+    const ok935Same = await call(h935c, '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://' + H935HOST, host: H935HOST });
+    const ok935NoOrigin = await call(h935c, '/api/deepamp/queue_status', 'GET');
+    ok('T-935: the two cases that were never gated stay ungated — the panel-s own origin, and a caller that sends no Origin',
+      ok935Same.code === 200 && ok935NoOrigin.code === 200, { same: ok935Same.code, none: ok935NoOrigin.code });
+
+    // (c) "*" is the one value that means every origin, and it says so on the read.
+    const W935 = makeCtx({ audit: true });
+    mod.apply(W935.ctx, { allowed_origins: ['*'] });
+    await tick(80);
+    const rw935 = await policy935(api935of(W935.bag));
+    const rw935Foreign = await call(api935of(W935.bag), '/api/deepamp/queue_status', 'GET', undefined,
+      { origin: 'http://any.page.at.all', host: H935HOST });
+    ok('T-935: "*" admits every origin and the read carries the wildcard rather than a list pretending to be one',
+      rw935.json.wildcard === true && rw935.json.same_origin_only === false
+      && rw935.json.allowed.length === 0 && rw935Foreign.code === 200, { read: rw935.json, code: rw935Foreign.code });
+
+    // (d) one entry that is not a bare authority refuses the WHOLE key: a half-applied allow-list is a door
+    // nobody intended. The bad entry is named verbatim, in the audit and on the read.
+    const B935 = makeCtx({ audit: true });
+    mod.apply(B935.ctx, { allowed_origins: ['elsewhere.example', 'https://typo.example/path'] });
+    await tick(80);
+    const rb935 = await policy935(api935of(B935.bag));
+    const bAudit935 = B935.bag.shellCalls.filter(function (c935) { return /config_declared/.test(String(c935)); });
+    ok('T-935: an entry that is not a bare host[:port] refuses the whole list, leaves the closed door, and is named verbatim',
+      rb935.json.same_origin_only === true && rb935.json.source === 'default'
+      && rb935.json.refused_at_boot.join(',') === 'https://typo.example/path'
+      && bAudit935.length === 1 && /allowed_origins/.test(String(bAudit935[0])) && /rejected/.test(String(bAudit935[0])),
+      { read: rb935.json, audit: String(bAudit935[0] || '').slice(0, 220) });
+
+    // (e) an empty list is not a claim about today: it reads as no declaration and says nothing in the audit.
+    const E935 = makeCtx({ audit: true });
+    mod.apply(E935.ctx, { allowed_origins: [] });
+    await tick(80);
+    const re935 = await policy935(api935of(E935.bag));
+    ok('T-935: an empty allow-list is not a declaration — the door stays closed and the boot audit says nothing about it',
+      re935.json.same_origin_only === true && re935.json.source === 'default'
+      && !E935.bag.shellCalls.some(function (c935) { return /allowed_origins/.test(String(c935)); }),
+      re935.json);
+
+    // (f) the fence is still one fence, at one prefix. (The T-931 pin counts sameOrigin931 calls and still passes:
+    // the gate moved behind originAdmitted935, it did not multiply.)
+    const SRC935 = require('fs').readFileSync(LIB, 'utf8');
+    ok('T-935 source: the widened gate is still ONE call site at the API prefix, and the audio prefix still has none',
+      (SRC935.match(/originAdmitted935\(/g) || []).length === 2
+      && (SRC935.match(/sameOrigin931\(/g) || []).length === 2
+      && !/function serveAudio[\s\S]{0,400}(sameOrigin931|originAdmitted935)/.test(SRC935),
+      { admitted_calls: (SRC935.match(/originAdmitted935\(/g) || []).length,
+        same_origin_calls: (SRC935.match(/sameOrigin931\(/g) || []).length });
+  }
 
   // T-930 (`docs/FACTS.md`, the harness architecture cross-reference): the transport-s documented clamp is
   // 600 000 ms, and a call that asks for MORE than that is cut by a wall this lane neither set nor can see.
@@ -22867,7 +22985,7 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
   }
 
   // ================= T-763 (2026-11-09): a capacity refusal PARKS the row and spends no brake ================
-  // The operator's ruling is recorded on `../TODOS.md` WM-38 item 10(b). The question put to them was what a capacity
+  // The operator's ruling is recorded on `docs/FACTS.md` "The engine-slot park". The question put to them was what a capacity
   // refusal should cost the lane, and the answer chosen was "No: park and retry, do not count it" — not a strike, not
   // an auto-pause. The measured case behind it is ap-1298 and ap-1301, 2026-11-09: a CPU engine had kept inferring a
   // take the plugin no longer had a row for (ap-1300, aborted by a harness restart on the plugin's side only), refused
@@ -26191,14 +26309,18 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
   }
 
   // ---------------------------------------------------------------- T-926 (2026-11-26): the private-data rule, made executable.
-  // The operator-s rule of 2026-11-15 (`AGENTS.md` 8.10, `../AGENTS.md` "Private data is not tracked inside a
+  // The operator-s rule of 2026-11-15 (`AGENTS.md` 8.10, the section "Private data is not tracked inside a
   // project-s git repo") says a tracked file of this package carries no account handle, no home path, no machine name
   // or address, no backup location — a role word plus a pointer to `LOCALHOSTS.md` instead. It was swept by hand on
   // 2026-11-18 (the class (b)/(c)/(d) cards) and RE-SWEPT FRESH on 2026-11-26 at the operator-s word ("then do 38,
   // priv-sweep, but start fresh fully across the repo"); the fresh numbers are on `TODOS.md` item 38 and in
   // `CHANGELOG.md` T-926. A hand sweep goes stale the moment the next card is written, so the rule lives here.
   // What is NOT private data, and is allowed by construction rather than by exception-per-line:
-  //   1. the package scope `@mepaw/…` — the name this package is published under (package.json, every import);
+  //   1. the package scope `@comchris/…` — this package's own name, which is a public identifier, not private data
+  //      (package.json, the patch rows, the client module id, every import). (T-936, 2026-11-27, at the operator-s
+  //      word: "the npm user will be same as git user comchris - so npm WILL be @comchris/deepamp-audio".) The
+  //      handle the package USED to carry is NOT exempt: class 1 below still refuses it anywhere in a tracked file,
+  //      which is now also the ratchet that catches a leftover of the old name.)
   //   2. a GENERAL path form: `<home>/…`, `~/.dsh/…`, and the invented home `/home/deepamp-test/…` a suite runs on;
   //   3. the invented fixture names the suites use (`cpu1.test`, `10.0.0.x`, `192.0.2.x`, `third.lan`); which real
   //      machine each one stands for is `LOCALHOSTS.md` §8, which git does not track — that map is the point;
@@ -26243,6 +26365,100 @@ const smuggleVoices592 = { tomboy1: Object.assign(VOICE592('tomboy1', 22.8), { s
     Object.keys(PRIV926).forEach(function (cls926) {
       ok('T-926 no private data in a tracked file: ' + cls926 + ' does not appear anywhere the reader goes',
         hits926[cls926].length === 0, hits926[cls926].slice(0, 6));
+    });
+  }
+
+  // ---------------------------------------------------------------- T-936 (2026-11-27): one package name, in all three places that must agree.
+  // The operator ruled the name this package carries: "the npm user will be same as git user comchris - so npm WILL be
+  // @comchris/deepamp-audio". The name is not decoration. The harness requires a browser module's registered id to
+  // equal the package name (ui-plugin.md: "The browser artifact registers a lazy factory whose id equals the package
+  // name"), and cordis.patch.yml resolves BOTH rows through that name — its own header records that a mismatch "is what
+  // previously broke the profile mount". So the manifest, the two composition rows and the client id are pinned as ONE
+  // value: a rename that reaches one of the three is a mount that half-boots, and this suite says so before the
+  // operator's restart finds it. The old scope is pinned out of everything the mount reads; CHANGELOG.md and this
+  // suite's own private-data guard are the two places a superseded name may still be named, as history.
+  {
+    const ROOT936 = path.join(__dirname, '..');
+    const fs936 = require('fs');
+    const name936 = String(JSON.parse(fs936.readFileSync(path.join(ROOT936, 'package.json'), 'utf8')).name || '');
+    const rows936 = String(fs936.readFileSync(path.join(ROOT936, 'cordis.patch.yml'), 'utf8')).split('\n')
+      // A row line is `      name: '<pkg>'` under its `- id:`; a `#` comment never matches this shape.
+      .map(function (l936) { const m936 = l936.match(/^\s*name:\s*'([^']+)'/); return m936 ? m936[1] : null; })
+      .filter(Boolean);
+    ok('T-936 the manifest names one scoped package, and both composition rows resolve through exactly that name',
+      /^@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(name936) && rows936.length === 2
+      && rows936[0] === name936 && rows936[1] === name936 + '/tools',
+      { name: name936, rows: rows936 });
+
+    // Only a SCOPED id literal is a module registration; the other `id:` shapes in the panel are slot names.
+    const ids936 = String(fs936.readFileSync(path.join(ROOT936, 'lib', 'client.js'), 'utf8')).match(/id:\s*"@[^\s"]+"/g) || [];
+    ok('T-936 the browser half registers under the package name — the id the module loader looks for, so a second value is a panel that never loads',
+      ids936.length === 1 && ids936[0] === 'id: "' + name936 + '"', { ids: ids936 });
+
+    const seen936 = {};
+    let scanned936 = 0;
+    ['package.json', 'cordis.patch.yml', 'README.md', 'AGENTS.md'].concat(
+      ['lib', 'tools', 'docs', 'examples', 'scripts'].reduce(function (acc936, d936) {
+        const abs936 = path.join(ROOT936, d936);
+        if (fs936.existsSync(abs936)) fs936.readdirSync(abs936).forEach(function (f936) {
+          if (/\.(md|js|cjs|py|sh|json|csv|yml)$/.test(f936)) acc936.push(d936 + '/' + f936);
+        });
+        return acc936;
+      }, [])).forEach(function (rel936) {
+      let t936 = '';
+      try { t936 = fs936.readFileSync(path.join(ROOT936, rel936), 'utf8'); } catch (e936) { return; }
+      scanned936++;
+      // A guide writes the scope as a placeholder (`@<scope>/…`) precisely so a rename cannot strand it; the pattern
+      // below matches a NAME, not a placeholder.
+      (t936.match(/@[a-z0-9][a-z0-9-]*\/deepamp-audio/g) || []).forEach(function (sc936) {
+        seen936[sc936] = (seen936[sc936] || 0) + 1;
+      });
+    });
+    ok('T-936 no second identity: the only package name in the files the mount reads is the manifest one, and the name this package left behind appears in none of them',
+      scanned936 >= 20 && Object.keys(seen936).length === 1 && Object.keys(seen936)[0] === name936,
+      { scanned: scanned936, scopes: seen936 });
+  }
+
+  // ---------------------------------------------------------------- T-934 (2026-11-27): a document pointer never leaves the package.
+  // The operator retired the workspace files this package used to point at, at their word of 2026-11-27: "i copied
+  // over the old files into … i want them not used anymore", and the shape they asked for is one guide per project
+  // with no confusion between the package's own AGENTS.md and a parent one. So a citation of this package is written
+  // from the package root, and no tracked document names a file outside it (AGENTS.md 1). CHANGELOG.md is NOT scanned:
+  // its cards are history, and a WM- id inside a card is a dated citation, not a pointer to follow. A markdown link
+  // written inside docs/ may carry a parent-directory prefix — that is how a link renders — which is why the first
+  // pattern is a backtick and not the string. The retired source tree is named third: nothing here may send a session
+  // to a directory that is not on the machine.
+  {
+    const ROOT934 = path.join(__dirname, '..');
+    const fs934 = require('fs');
+    const list934 = ['README.md', 'AGENTS.md', 'lib/index.js', 'lib/client.js', 'tools/index.js'];
+    ['docs', 'examples'].forEach(function (d934) {
+      const abs934 = path.join(ROOT934, d934);
+      if (!fs934.existsSync(abs934)) return;
+      fs934.readdirSync(abs934).forEach(function (f934) {
+        if (/\.(md|csv)$/.test(f934)) list934.push(d934 + '/' + f934);
+      });
+    });
+    const BAD934 = {
+      'a citation written as a relative path: a backticked .. / where a package path belongs': /`\.\.\//,
+      'a path two levels up': /\.\.\/\.\.\//,
+      'the retired source tree named as a place to go': /audio-play-cordis/,
+    };
+    const hits934 = {};
+    Object.keys(BAD934).forEach(function (k934) { hits934[k934] = []; });
+    list934.forEach(function (rel934) {
+      const txt934 = fs934.readFileSync(path.join(ROOT934, rel934), 'utf8');
+      txt934.split('\n').forEach(function (line934, i934) {
+        Object.keys(BAD934).forEach(function (k934) {
+          if (BAD934[k934].test(line934)) hits934[k934].push(rel934 + ':' + (i934 + 1));
+        });
+      });
+    });
+    ok('T-934: the pointer check has something to say about: it reads the reader-facing half of the package, not one file',
+      list934.length >= 25, { files_read: list934.length });
+    Object.keys(BAD934).forEach(function (k934) {
+      ok('T-934 no document pointer leaves the package: ' + k934 + ' does not appear in a tracked document',
+        hits934[k934].length === 0, hits934[k934].slice(0, 6));
     });
   }
 

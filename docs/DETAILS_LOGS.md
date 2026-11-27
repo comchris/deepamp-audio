@@ -18,6 +18,6 @@ Logs is for reading what happened: this panel's own account of what it asked for
    3. The panel log is not the lane's record. A refusal you read here is what this page was told, not what the plugin did.
    4. Nothing here is fetched on a timer. Both halves are read when the section opens or when you press.
 
-4. **Details.** The lane log is one line per event — the event name and the fields a reader needs, never a dumped state object (`../AGENTS.md` 5.19) — and it is a file under the plugin's store root, which the `perf_log` Config field decides whether the plugin writes at all (`../AGENTS.md` 6). A row's own answer is a better source than either log for one question: what a job is waiting for is on the row, in its park key and its `park_reason` (`../AGENTS.md` 5.7).
+4. **Details.** The lane log is one line per event — the event name and the fields a reader needs, never a dumped state object (`AGENTS.md` 5.19) — and it is a file under the plugin's store root, which the `perf_log` Config field decides whether the plugin writes at all (`AGENTS.md` 6). A row's own answer is a better source than either log for one question: what a job is waiting for is on the row, in its park key and its `park_reason` (`AGENTS.md` 5.7).
 
 **Also:** [../README.md](../README.md) for the verbs, [../AGENTS.md](../AGENTS.md) for the rules, [../CHANGELOG.md](../CHANGELOG.md) for what changed.

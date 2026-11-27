@@ -20,6 +20,6 @@ Models is for reading what the endpoints on this lane actually answer: the model
    3. A filter that matches nothing says so and names how many are in the view.
    4. Nothing is read on a timer. The list is read when the section opens and when you press `refresh`.
 
-4. **Details.** The dot is a fact about the endpoint, not about your choice: only the highlighted row is a selection, and a resident build gets no colour of its own so that one colour cannot mean two opposite things. The counts on the group names are the whole lane, not what your filter is showing. What a dispatch then refuses, and why `force` exists, is `../AGENTS.md` 5.9.
+4. **Details.** The dot is a fact about the endpoint, not about your choice: only the highlighted row is a selection, and a resident build gets no colour of its own so that one colour cannot mean two opposite things. The counts on the group names are the whole lane, not what your filter is showing. What a dispatch then refuses, and why `force` exists, is `AGENTS.md` 5.9.
 
 **Also:** [../README.md](../README.md) for the verbs, [../AGENTS.md](../AGENTS.md) for the rules, [../CHANGELOG.md](../CHANGELOG.md) for what changed.

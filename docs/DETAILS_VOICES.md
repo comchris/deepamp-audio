@@ -20,6 +20,6 @@ Voices is for the voice registry: the reference samples this plugin holds, the t
    3. The filter changes no state and sends nothing.
    4. A voice is not registered from this section. The name field and the register control sit with the file they consume, in [DETAILS_STT.md](DETAILS_STT.md).
 
-4. **Details.** The length on a row is a measurement of the sample, cached so the list does not re-probe it. A model that lists its own speakers is offered those names beside this registry; a model that lists none renders on its own voice — the one vocabulary for that is `../AGENTS.md` 5.10. Nothing here copies a sample to an engine: an endpoint sees it only when a clone actually runs. The store is the single source of truth for voices, and no shelf or remote copy of a sample is kept.
+4. **Details.** The length on a row is a measurement of the sample, cached so the list does not re-probe it. A model that lists its own speakers is offered those names beside this registry; a model that lists none renders on its own voice — the one vocabulary for that is `AGENTS.md` 5.10. Nothing here copies a sample to an engine: an endpoint sees it only when a clone actually runs. The store is the single source of truth for voices, and no shelf or remote copy of a sample is kept.
 
 **Also:** [../README.md](../README.md) for the verbs, [../AGENTS.md](../AGENTS.md) for the rules, [../CHANGELOG.md](../CHANGELOG.md) for what changed.

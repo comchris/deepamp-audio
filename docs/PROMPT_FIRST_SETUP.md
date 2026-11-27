@@ -13,10 +13,10 @@ a person would notice it**, and to report what it found.
    One thing it points at is **not** in the package and is not meant to be: `LOCALHOSTS.md` carries one
    machine's names, paths and ids and is gitignored on purpose. An installing session does not go looking for
    it — the equivalent answer here is `GET endpoint_registry`, which names this machine's slots.
-2. `../AGENTS.md` (**the author's workspace file, not part of the package**). In an installed copy it is not
-   there, and nothing in this procedure depends on it. What it holds that a setup could ever want is the
-   operator's preference about which machine is kept off the lane — a decision, so it is **asked of the person
-   in front of you**, never inferred from a file you do not have.
+2. **There is no guide above this package.** Item 1 is the only guide an installing session reads, and the
+   read order below is the whole of what this procedure depends on. What a setup could ever want from a wider
+   file — which machine the operator keeps off the lane — is a decision, so it is **asked of the person in front
+   of you**, never inferred from a file you do not have.
 3. `docs/FACTS.md`, section "What a fresh install of this package actually gets" — what a new install has
    and does not have. Read it before anything is dispatched, so nothing here is a surprise.
 4. This file — the procedure and the three test creations.

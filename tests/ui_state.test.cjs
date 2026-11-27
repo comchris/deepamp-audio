@@ -9257,7 +9257,7 @@ check('T-388 source: the navigation controls open the window with the same calls
 
     // --- the panel whose host HAS the route ---
     const p1 = mk519(function () {
-      return { ok: true, version: '7.2.1', name: '@mepaw/deepamp-audio', source: MAN519, via: 'module import', read_at: 1760000000000 };
+      return { ok: true, version: '7.2.1', name: '@comchris/deepamp-audio', source: MAN519, via: 'module import', read_at: 1760000000000 };
     });
     const r0_519 = p1.render();                 // mount, no flush: the read is OUT, no answer has landed
     check('T-519: the Log section is open by default, so a normal page asks ONCE at mount — nobody had to open anything, and it is asked once, not polled',
@@ -9324,7 +9324,7 @@ check('T-388 source: the navigation controls open the window with the same calls
     // — is typed into lib/client.js.
     {
       const p3_883 = mk519(function () {
-        return { ok: true, version: 'v9.9.9', name: '@mepaw/deepamp-audio', source: MAN519, via: 'module import', read_at: 1760000000000 };
+        return { ok: true, version: 'v9.9.9', name: '@comchris/deepamp-audio', source: MAN519, via: 'module import', read_at: 1760000000000 };
       });
       p3_883.render();
       await flush();
@@ -9982,7 +9982,7 @@ check('T-388 source: the navigation controls open the window with the same calls
     // client's own "this page cannot open a new tab" line).
 
     const ANSWER508 = function () {
-      return { ok: true, version: '7.2.1', name: '@mepaw/deepamp-audio', source: require('path').join(__dirname, '..', 'package.json'), via: 'module import', read_at: 1760000000000 };
+      return { ok: true, version: '7.2.1', name: '@comchris/deepamp-audio', source: require('path').join(__dirname, '..', 'package.json'), via: 'module import', read_at: 1760000000000 };
     };
     const mk508 = function (answer508) {
       const asked508 = [];

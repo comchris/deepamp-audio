@@ -5,7 +5,7 @@ is not here, that fact is NEW and must be verified once and added here.
 
 Verified in this package on 2026-11-04 00:2x Berlin. Two mechanical checks were run over this whole file against
 `lib/index.js`, `lib/client.js` and `tools/index.js` (`/tmp/facts_token_check.cjs`, `/tmp/facts_number_check.cjs`,
-output in `audio-play-cordis/scratch/`):
+output in the old source tree’s `scratch/`, which is not carried here):
 
 1. **Every identifier this file names is either still in the source or names something that was never in this
    package.** 20 backticked tokens do not appear in the three sources, and each one is accounted for: engine-side
@@ -30,7 +30,7 @@ Placement preference, and the machine literals in the last two sections are **fl
 of 2026-11-03 (WM-27, "it's dynamic and should be taken from the plugins current settings") says fleet state is not a
 document's content, dated or not: it is read in the session that needs it. Those lines were replaced by the verbs that
 answer them. Nothing was deleted from the record — the full dated reads stand in the tree this copy was made from
-(`audio-play-cordis/FACTS.md`) and in `CHANGELOG.md`. The **rules** those sections carried are kept, because a rule is
+(the superseded source-tree record, which is not carried into this package and is not on this machine (checked 2026-11-27)) and in `CHANGELOG.md`. The **rules** those sections carried are kept, because a rule is
 not a state: a dialogue batch stays off a slot the operator holds for single voice; a Vulkan unit is started by hand
 before its slot is released; a lost GPU context is invisible to systemd; `MemoryPeak` on those units is not a leak
 meter.
@@ -89,7 +89,7 @@ meter.
 
 4. **This plugin holds two voice-name sources and they are not one list.** The voice-mode answer reads the family record **and** the model-s own published record (T-782); until `CHANGELOG.md` T-918 the reference_text door read only the family one — which is how one answer could offer nine built-in speakers while the other said that family lists none. Any later "is this name a built-in speaker" question reads both (`builtinVoicesKnown67` plus `capCachedModelVoices`) and tests the name with the case-folded membership the capability bar uses.
 
-## Fleet (read 2026-10-07 22:55 — superseded as state; the table it carried is in `audio-play-cordis/FACTS.md`)
+## Fleet (read 2026-10-07 22:55 — superseded as state; the table it carried is in the superseded source-tree record, which is not carried into this package and is not on this machine (checked 2026-11-27))
 
 1. **What is no longer written here (operator ruling 2026-11-03, WM-27).** Which slot is `primary`, which is enabled
    or held, what an engine's catalog lists, what an entry's id is — read it in the session that needs it: `GET
@@ -213,7 +213,7 @@ Errors: **28 wrong-lane** (`requires an audio ...` — ASR or separation model o
    15 assertions (T-208 a0/a/b, T-208 (f) x3, T-224 (d) x3, T-205a x3, T-203 x3) because it lets a busy primary machine outrank a
    free machine. A permanent in-group preference costs 6 assertions (the ones that say the primary is not special). Both are
    archived at `artifacts/t228_prefer_primary_20261008/`, and that directory is NOT in this package: it was never
-   carried into it and lives in the source tree at `../../audio-play-cordis/artifacts/` (checked 2026-11-12). The two
+   carried into it, and the old source tree it lived in is not on this machine (checked again 2026-11-27). The two
    counts are stated in this line, and they are what the settled decision rests on.
 3. A busy primary is not preferred: its slot test takes it out of the free group, so the next row goes to a free secondary. A
    paused primary, an offline primary, and an unknown primary are never preferred, and preference never parks a row with
@@ -223,7 +223,7 @@ Errors: **28 wrong-lane** (`requires an audio ...` — ASR or separation model o
 5. The live fleet is not written here (operator ruling 2026-11-03, WM-27): `GET endpoint_registry?fn=tts|stt` names every
    slot, which one is `primary`, and which are held, in the session that needs it. The dated read this line carried
    (2026-10-08: two host:port primaries plus four registry ids, and a note that the workspace index was stale on it)
-   is superseded several times over and stands unchanged in `audio-play-cordis/FACTS.md`. What the read was for stands
+   is superseded several times over and stands unchanged in the superseded source-tree record, which is not carried into this package and is not on this machine (checked 2026-11-27). What the read was for stands
    unchanged: placement preference is evaluated against what the registry says **now**, never against a copy of it in a
    document.
 
@@ -243,7 +243,7 @@ Errors: **28 wrong-lane** (`requires an audio ...` — ASR or separation model o
 1. An engine's `cannot load model '<x>': max_loaded_models=1 and every loaded model is busy; retry later` is a
    **capacity** answer about an endpoint that is up and answering in about a second. Since T-763 it PARKS the row and
    spends nothing else: no `autoPauseEndpoint`, no entry in `failRun`, no `failStreak` / `wedgeStreak` / `busyStreak`
-   movement, no lane pause. The operator's ruling is on `../../TODOS.md` WM-38 item 10(b) — asked whether such a
+   movement, no lane pause. The operator's ruling is the section "The engine-slot park" of this file — asked whether such a
    refusal should cost the lane a strike, the answer chosen was "No: park and retry, do not count it".
 2. The split is `job.err_slot_load_refuse`, set from `SLOT_LOAD_REFUSE_RE`. The OTHER half of
    `isSlotWedgedRejection` — `the previous request has likely wedged and cannot be cancelled` — keeps every behaviour
@@ -319,7 +319,7 @@ Errors: **28 wrong-lane** (`requires an audio ...` — ASR or separation model o
    `Result=success` / `ExecMainStatus=0` after losing its GPU context is **not** restarted by `Restart=on-failure`, and
    a `WatchdogSec` on a `Type=simple` service that never calls `sd_notify` would kill healthy engines. So the brake is
    plugin-side (T-246), not unit-side. The drop-in file names and the per-unit values this line listed are this
-   machine's configuration and stand in `audio-play-cordis/FACTS.md`.
+   machine's configuration and stand in the superseded source-tree record, which is not carried into this package and is not on this machine (checked 2026-11-27).
 2. **A lost GPU context does not make `audiocpp_server` fail in a way systemd can see.** On gpu1 it logged
    `radv/amdgpu: The CS has been cancelled because the context is lost` five times in ~11 h (Oct 07 16:00:00, 16:03:30;
    Oct 08 00:53:33, 00:59:40, 03:12:12) with `NRestarts=0` the whole time. One of those processes never exited (the unit's
@@ -600,7 +600,7 @@ Code: `lib/client.js` (`lastStationRef747` :12171 with its two helpers :12172-:1
 
 ## Generation cost per second of audio, per model (measured 2026-11-10 from the plugin's own rows) — do not re-derive
 
-Answered `../TODOS.md` WM-41 item 5 ("analyse, then either do or drop"). The analysis was run on the plugin's own
+Answered the operator-s ask of that date ("analyse, then either do or drop"), quoted here because the tracker that held it is retired. The analysis was run on the plugin's own
 state file, not on a new dispatch: `<home>/.dsh/deepamp-audio/state.json`, 200 rows, 182 `ok`, **140 of them
 carrying both `elapsed_gen` and `duration`** — the two keys the ratio needs. Ratio = `elapsed_gen_s ÷ duration_s`,
 median per model, minimum and maximum beside it because a median alone hides the spread.
@@ -691,7 +691,7 @@ median per model, minimum and maximum beside it because a median alone hides the
 3. **What this package never does:** start an engine, download a model, or install a service. `mix_audio` (one ffmpeg
    pass), media capture (yt-dlp, only when `ytdlp_path` names the binary), the takes trim and the local WAV header
    reads are the only local work it does, and none of it is inference.
-4. **Where the operator's own setup is written instead:** the workspace `../../AGENTS.md`, section "Remote audio
+4. **Where the operator's own setup is written instead:** `LOCALHOSTS.md` of this package and `GET endpoint_registry`, section "Remote audio
    architecture" — which box is kept off the lane and why. That is a preference about one setup, not a property of the
    plugin, and what is in play today is read with `GET endpoint_registry?fn=tts|stt`.
 
@@ -1080,7 +1080,7 @@ Measured 2026-11-19 on each CPU node (`ap-1782`, `ap-1783`) and re-measured 2026
 
 ### Verified agreements — kept short, so the pass is auditable and nothing above is read as a general complaint
 
-1. The export form is the documented one: `export { apply, inject }` plus `export const Config`, no service class mixed in (`host-plugin.md:62`), and the live Config is projected through the documented inspection path — `Config.listConfigs {name:"@mepaw/deepamp-audio"}` answers one entry, `deepamp-host`, status `schema`.
+1. The export form is the documented one: `export { apply, inject }` plus `export const Config`, no service class mixed in (`host-plugin.md:62`), and the live Config is projected through the documented inspection path — `Config.listConfigs {name:"@comchris/deepamp-audio"}` answers one entry, `deepamp-host`, status `schema`. (The read was first taken under the scope the package carried then. The name moved to the one this line now carries on 2026-11-27 (`CHANGELOG.md` T-936), and the read was **re-taken under it after that day's restart: one entry, `deepamp-host`, status `schema`** — unchanged. The name is what this read is asked with, so a line that carries a stale one is a dead end, not a history note.)
 2. `engines.dsh: ">=0.2.2-rc.1"` and a `@deepseek-ai/cordis` peer are declared — the gate `plugin_manager` uses is in place.
 3. The browser half is the documented bundle-client form: `dsh.client {platform:"web"}` plus a `./client` export, the module registering through `window.__ModuleLoader__`, exactly what `dsh-client-modules/README.md:34` describes; it is React (`React.createElement`, one runtime `require("react")`), so `practices.md:33` is met, and it contributes through a slot (`slots.inject("shell.overlay", …)` / `slots.register(…)`) without appending a second application to `document.body` (`ui-plugin.md:13`).
 4. Per-agent registrations keep their disposer in the plugin's own effect as well as on the agent context — `practices.md:2,19` in almost the same words as the comment at `tools/index.js:413-416`. Optional services are in `inject` (`practices.md:20`). The prompt half uses `ctx.systemPrompt.section()` and its order tie-break matches the documented rule (`practices.md:18`).
@@ -1094,3 +1094,72 @@ Measured 2026-11-19 on each CPU node (`ap-1782`, `ap-1783`) and re-measured 2026
 1. Session projections (`practices.md:26-27`) and the projection seam: this plugin's state is lane state it owns, not state derived from the session log.
 2. `ctx.credentials` (`configuration.md:12`): the plugin holds no secret; the registry holds URLs, the store holds files.
 3. `ctx.tools.guard()` (`practices.md:17`): the capability bar's refusal is the plugin's own door, taken before a job row exists, not a policy over the tool pipeline.
+
+## Records the retired workspace tracker used to hold (moved in whole 2026-11-27)
+
+The tracker outside this repository that carried the `WM-` cards is retired and read by nothing here. Two of its
+records were the only place a DEEPAMP measurement was written; they are carried here so the documents that cite them
+resolve inside this package. Nothing about the rulings changed, and the dates stay attached.
+
+1. **The separation pass and the request wall (measured 2026-11-09, one CPU slot, one 180.00 s source).** Two
+   separators, same source, same slot: one finished in `gen 434.9 s` — about **2.4x realtime** — and the other was cut
+   by **this plugin's own 3 600 s request limit at that length**, which is a wall on that path and no wall on the other.
+   The row-level numbers (`load`, `gen`, output length, the engine's own error text) are `docs/MODELS_TEST_MATRIX.csv`,
+   rows for `htdemucs` and `mel_band_roformer` dated 20261115. What follows from it is the rule, and the rule is
+   `AGENTS.md` 5.14: a separation pass is paid only when the source is known to carry music or more than one speaker,
+   and then on the **shortest clip that holds the voice**, never on the whole window. The ratio belongs in a guide;
+   the model names and the seconds do not.
+2. **The operator's word on one model's quality, with the measured row beside it (2026-11-16).** The word, verbatim:
+   **"quality of the GLM-TTS take is bad, should not be a favored model currently,"**. It is kept as a judgement with
+   its date, never as a status field on the model record — the precedent for keeping a preference of this kind in a
+   record rather than a guide is the same lane's word of 2026-11-09 about the favored clone model. The number beside
+   it, stated so the two are not read as one thing: row `ap-1717`, 14:39-14:41 Berlin, **6.06 s of audio,
+   290 924 B, `elapsed_load 1.6 s`, `elapsed_gen 157.4 s` — 26x realtime**. The judgement is the operator's; the
+   seconds are the lane's, and a model choice is still read from the live catalog (`AGENTS.md` 5.2).
+
+## What the harness itself runs as a request policy, and what this lane took from it (read 2026-11-27)
+
+Read in the installed packages, not from memory, because `TODOS.md` part one item 126 asked what the harness
+recommends for our case and the answer is written down in two places. Card: `CHANGELOG.md` T-935.
+
+1. **The harness has no server-wide policy, and says so about itself.** `@deepseek-ai/dsh-host-webserver/README.md`,
+   under its own limits: "**No server-wide authentication or origin policy** — route owners such as
+   `dsh-client-connection` enforce their own request policy. Binding a non-loopback address still exposes unprotected
+   routes and static assets to that network." So a route owner deciding this is the expected shape, not an
+   overreach, and the exposure warning is the harness's, not ours.
+2. **The reference implementation is `@deepseek-ai/dsh-client-connection/src/api-request-trust.ts`.** Three fences, in
+   its words: a **Host fence** on *every* request — the Host "must be loopback, equal the listener's bind IP literal
+   on any port, or match a `trustedHosts` entry: exact on `host:port`, any port on port-less entries" — because that
+   is the one header DNS rebinding cannot forge, and "a browser read over plain HTTP (images and navigations) arrives
+   with neither Origin nor Fetch-Metadata, indistinguishable from curl"; a **cross-site fence** (`sec-fetch-site:
+   cross-site` refused); and an **Origin fence** — an attached Origin "must name the same authority", absent Origin is
+   fine, and the literal `null` is an opaque origin and is refused.
+3. **The list of extra authorities is validated at load, not at request time.** `assertTrustedAuthority` refuses an
+   entry that a URL parse would rewrite — a path, a user part, a scheme, a zero-padded port, an unbracketed IPv6, a
+   percent-encoding — and the README: "Malformed configured authorities fail plugin load." The reason it is spelled
+   out there is the reason it is copied here: a silent normalization "would broaden an intended exact-port grant to
+   every port".
+4. **It does not trust forwarded headers, and says not to.** "Host and configured entries use the listener's scheme for
+   WHATWG default-port normalization, **not a forwarded header or `Origin`**", and the webserver doc for the same
+   reason: a plugin "that keys request policy — a session cookie's `Secure` flag, an origin check — on the transport
+   reads one configuration-derived value **instead of inspecting sockets or trusting forwarded headers**". So the
+   tempting `X-Forwarded-Host` trust is the thing the harness deliberately does not do.
+5. **What a plugin may read about its own listener.** `ctx.webServer.protocol`, `.host`, `.port`, and `getOrigin()` —
+   the root URL local clients reach — plus `isLoopbackHost`, `normalizeBindAddress`, `bindUrlHost`. Measured on the
+   installed `0.2.2-rc.5`. This lane's `GET origin_policy` reads those and reports "unanswered" when a carrier does
+   not supply them, rather than guessing an origin from the request.
+6. **Whether a browser can reach the host at all is the webserver's config, not a plugin's.** The same doc: `host` "takes
+   one concrete IPv4 or IPv6 literal of a local interface … A loopback literal … keeps the server on this machine; any
+   other literal serves the network that address belongs to", an unspecified address is "rejected at load", and
+   "`dsh web --host 0.0.0.0` is unsupported". That is the first thing to change for an operator who wants to open the
+   panel from another machine; no plugin knob substitutes for it.
+7. **What this lane kept, and what it did not.** Kept: the Origin fence it already had (T-931), widened by a declared
+   `allowed_origins` list with the same authority semantics and the same canonical-form rule, read-only through
+   `GET origin_policy`. Not kept: the **Host fence** — this plugin's gate has never had one, so a request with no
+   `Origin` and any `Host` is answered today, which is exactly the rebinding case the harness names. That is a
+   decision of its own and it stays open on `TODOS.md` part one item 126, not a detail of this card.
+8. **Measured about our own surface on 2026-11-27, because it bounds what the list can do.** `Access-Control` appears
+   **0** times in `lib/` and `OPTIONS` is handled as an HTTP method **0** times: so a page on another origin can now
+   pass this gate and still be stopped by its own browser, which will not let it read a response with no
+   `Access-Control-Allow-Origin`, and will preflight a JSON `POST` with an `OPTIONS` this dispatcher answers `405`.
+   A same-address panel (the ordinary case) is unaffected. The CORS half is a separate card, open on item 126.

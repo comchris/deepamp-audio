@@ -56,7 +56,7 @@ today (a quant-suffixed id with no row of its own falls to the lane median, as t
 assertions in `tests/host.test.cjs` that read these rows are untouched, and the suite was re-run green.
 
 **One operator-stated quality note, carried here because the operator said it about a row of this record
-(2026-11-16, `../TODOS.md` WM-54).** A take this lane rendered on the `glm-tts` row was judged poor by
+(2026-11-16, the operator-s word; the measured row beside the judgement is in `docs/FACTS.md`).** A take this lane rendered on the `glm-tts` row was judged poor by
 the operator, verbatim: "quality of the GLM-TTS take is bad, should not be a favored model currently,". It
 is recorded as their word with its date attached, **not** as a status in a measured column and **not** as a
 recommendation: the row's measured columns are unchanged, the model stays listed, and a record says what
@@ -137,7 +137,7 @@ perf log (`perf_stats`) words + ms fields.
 
 Measured on CUDA; our fleet is CPU-only, so the VRAM columns do not transfer and the speed
 ratios are indicative only. Full cross-reference:
-`../../audio-play-cordis/artifacts/quant_and_ttsd_integration_20261002.md` — that record stayed in the source tree
+the quant/provenance record of 2026-10-02 stayed in the old source tree, which is not carried into this package and is not on this machine (checked 2026-11-27)
 and is not in this package (checked 2026-11-12).
 
 - `qwen3-tts` = `q8_0_v2` is the upstream-recommended clone package (speaker-sensitive

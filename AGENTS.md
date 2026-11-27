@@ -8,11 +8,15 @@ section 10.
 
 ## 1. Read order
 
-1. The workspace guide `../AGENTS.md` — **the author's workspace file, not part of this package**. In an
-   installed copy it is not on disk, and nothing in this package depends on it being there: it carries
-   workspace-wide rules (no deletes, backups, no emojis, numbered lists, restart safety, delegation) and one
-   machine owner's decisions about which machine is kept off the audio lane. A session working from an
-   installed copy asks the person in front of it that question instead of reading a file it does not have.
+1. **This file is the only guide, and it is this package’s.** The names `AGENTS.md`, `TODOS.md`, `CHANGELOG.md`
+   and `LOCALHOSTS.md` mean **this package’s own files**, and a citation inside this package is written from the
+   package root — `AGENTS.md`, `docs/FACTS.md`, `TODOS.md`, never a parent-directory prefix of them. (A markdown
+   link written inside `docs/` keeps its parent-directory prefix because that is how a link renders; what is never
+   used, in a link or in prose, is a path to a file outside this package. `tests/host.test.cjs` checks this.) There is no guide above this directory and no parent tracker. What may sit *beside* the repository — a
+   project index and a local-harness fact sheet, both named in section 10 — is neither a guide nor a tracker and is
+   authority for nothing in this package. Workspace discipline (a trash instead of deletes, a copy before an edit,
+   restart etiquette) is carried here, in sections 3 and 8; a decision no file of this package carries — which
+   machine is kept off the lane, for one — is asked of the person in front of the session.
    Everything else in this read order **is** package-local.
 2. This file — what the plugin does, what it refuses, and how to work inside it.
 3. `README.md` — the landing page for the plugin: what it is (one front-end for an audio.cpp engine running multiple
@@ -34,9 +38,11 @@ Open work for this plugin **is in this package**: `TODOS.md`, created 2026-11-12
 and on its scope: **"we should do 1+3 … but we should first try to close more cards so we have to move less and
 can move more into changelog as done!"** Its part one is the open-cards index — every open item of this plugin,
 one line each; its part two is the **version targets** section (v0.1.0 as it stands today, v0.1.1, v0.1.2, v0.2.0),
-moved there whole from the workspace `../TODOS.md` with its item numbering unchanged, ruled by the operator
-2026-11-07. The **WM cards** stay in `../TODOS.md`: they are the operator's rulings in date order and several are
-cross-project, and `TODOS.md` part one points at them rather than replacing them. A card keeps its `T-` id in
+moved here whole with its item numbering unchanged, ruled by the operator
+2026-11-07. The **WM cards** — the operator’s rulings in date order, several of them cross-project — lived in a tracker
+outside this repository that is **retired and read by nothing here**: the DEEPAMP half of any ruling this package
+needs is quoted in full where it is used (section 5 of this file, the `CHANGELOG.md` cards, `docs/FACTS.md`), and a
+`WM-` id that survives inside a `CHANGELOG.md` card is a dated citation, not a pointer to follow. A card keeps its `T-` id in
 `CHANGELOG.md`; the version target is written only on the TODOS line.
 
 **`TODOS.md` is named in this package’s `.gitignore`, like `LOCALHOSTS.md`: it is the local half of the
@@ -44,7 +50,7 @@ package.** It sits with the code and it is in no clone, no tag and no published 
 of 2026-11-26, `TODOS.md` part one item 116. The reason is the same as for `LOCALHOSTS.md`: the tracker carries
 the operator’s rulings in their own words and this machine’s names, and a repository is the thing that leaves.
 So a session working from a clone has no open-work index to read, and it asks the person in front of it what is
-open instead of reading a file it does not have — the same shape as item 1 of this section for the workspace guide.
+open instead of reading a file it does not have — the same shape as item 1 of this section.
 
 ## 2. What is in the tree
 
@@ -126,7 +132,7 @@ browser keys are `deepamp:*`.
    Whether that should be a 4xx is an open question, not a defect to fix quietly.
 3. Engine liveness is `/health`, never `/status` — `/status` blocks while an engine is rendering.
 4. `endpoint_models` is **POST-only** and needs `{fn, id}`; a bare `{fn}` is refused. A GET on it is answered `405`
-   like any verb sent with the wrong method — the guides that called it a GET were corrected on 2026-11-07 (WM-26),
+   like any verb sent with the wrong method — the guides that called it a GET were corrected on 2026-11-07,
    and `tests/host.test.cjs` pins the gate. `endpoint_promote {fn,id}` is the one
    set-as-primary verb. Registry ids are a global sequence and are never reused, so a number carries no
    meaning beyond the entry it names.
@@ -146,7 +152,7 @@ browser keys are `deepamp:*`.
 2. **No document names a model as the model to use.** A dispatch must name a model, and the plugin
    refuses one the target endpoint's catalog does not list. Read it: `POST endpoint_models {fn,id}` — the verb is a
    POST because it goes and asks that engine and stores what it answered — or the
-   engine's own `/v1/models`. This is a workspace rule, not a style preference.
+   engine's own `/v1/models`. This is a rule of this package, not a style preference.
 3. **No fleet state in a document, dated or not.** Which slot is `primary`, which is held, what a catalog
    answers, whether a node's unit is running: read it in the session that needs it with
    `endpoint_registry`, `endpoint_health`, `endpoint_models`, `queue_status`. What a guide may carry is a
@@ -222,8 +228,8 @@ browser keys are `deepamp:*`.
     privileged action on these units, and the privilege is read on the node, not assumed here:** a plain
     `systemctl stop|restart` asked over a non-root ssh session is refused (`Interactive authentication required` on
     one CPU node, `Access denied` on the other, measured 2026-11-08), and the privilege that makes a restart work is **read on the node and never
-    assumed here**: the sudoers state that answers it is a fact about this fleet and it lives in the workspace realm
-    (`LOCALHOSTS.md` of this package and the workspace index), not in this repository — so the form that works is
+    assumed here**: the sudoers state that answers it is a fact about this fleet and it lives in `LOCALHOSTS.md` of this package, which git
+    does not track, and not in this repository — the form that works is
     `sudo systemctl restart <unit>`. **And one clarification, stated because a session gets it wrong: nothing about
     USING this plugin needs a privileged account on a remote — the lane is plain HTTP. A privileged action appears only
     where an agent installs or updates an endpoint: a build, a unit or config edit, a restart of a unit.** A refused `systemctl` is not a
@@ -254,22 +260,22 @@ browser keys are `deepamp:*`.
     `save_voice` normalizes the sample and takes `reference_text` from the transcription lane, and that half is already
     optional (`transcribe:false` with a `ref_text` given). What was not optional was the agent's own pipeline. The
     expensive part of this lane is a separation pass: measured 2026-11-09 on one CPU slot, same source, one separator at
-    ~2.5x realtime and another at ~20x (names, lengths and numbers: `docs/MODELS_TEST_MATRIX.csv` and `../TODOS.md`
-    WM-38 item 11(f) — this file carries the ratio, not the models). So: a source that is already one clean voice is
+    ~2.5x realtime and another at ~20x (names, lengths and numbers: `docs/MODELS_TEST_MATRIX.csv` and
+    `docs/FACTS.md`, "The separation pass and the request wall" — this file carries the ratio, not the models). So: a source that is already one clean voice is
     registered as it is, and nothing is paid for isolation. It is asked for when the source is known to carry music or
     more than one speaker, it is then done on the **shortest clip that holds the voice** — a `diar_to_chunks`
-    sentence-aligned clip, not the window (WM-38 item 7(d), closed by this item) — and it lands as its own named row,
+    sentence-aligned clip, not the window (asked on 2026-11-09, closed by this item) — and it lands as its own named row,
     never inside the registration. A session that skips it says it skipped it.
 15. **Build hygiene on the nodes (operator ruling 2026-11-11, verbatim: "delete old audio.cpp versions to free disk
     space … we do not want to copy them over the LAN").** A superseded engine build — an old `build/<tree>` or a
     `prev_<commit>` rollback binary — is **deleted** once a newer build is running and verified on that node. The
-    workspace habit of moving stale things into `OLD_ignore/` does **not** extend to node build artifacts, and copying
+    habit of moving stale things into an `OLD_ignore/` trash instead of deleting them does **not** extend to node build artifacts, and copying
     them to the shared model store is not a way of keeping them either: **a move inside one filesystem frees nothing**,
     which is exactly what the first pass of this measured: the same free space before and after. The order is: build in the
     existing tree, restart the unit, verify health and catalog, re-read the slot, **then** clear the superseded build.
     What is worth keeping is the code and not the binaries — a small code-only archive of this package plus the
-    workspace index files, made locally in the workspace backup directory (named at the workspace
-    root; the first was made the same day: 6.9 MB, 149 entries, all 26 suites inside). **And nothing a node holds is ever archived here (operator's word 2026-11-12:
+    index files of the tree it was made in, written to that tree's own backup location (this machine's path for it
+    is named in `LOCALHOSTS.md`; the first archive was made the same day: 6.9 MB, 149 entries, all 26 suites inside). **And nothing a node holds is ever archived here (operator's word 2026-11-12:
     "do NOT backup remote audio.cpp versions - those are on git").** A node's source is its own git checkout and its
     version is read from it — `git describe` on that checkout answers what it is, and a slot's own health and model
     reads answer what is running. No engine build tree, no binary and no copy of a node's checkout goes into a
@@ -367,6 +373,7 @@ unchanged but **named** there, so a typo in a patch file shows up instead of van
 | `stt_feed.mode` | string | `resample` \| `original` | The audio shape the transcription lane is fed. |
 | `stt_feed.rate` | number | 8000 … 48000 (eight fixed rates) | Sample rate for that lane. |
 | `stt_feed.channels` | string | `mono` \| `stereo` \| `source` | Channel count for that lane. |
+| `allowed_origins` | string array | bare `host` or `host:port` authorities, or the single value `*`; an empty list is **not** a declaration | **A security setting: which pages may drive the lane.** By default the lane answers only the origin it is answering; this names others. Added 2026-11-27 (`CHANGELOG.md` T-935, `TODOS.md` part one item 126). |
 
 **The transcription feed is left at its default — `resample / 16000 / mono` — on the operator's ruling of
 2026-11-11, and that is the safe shape, not the best one.** It is the default because a fractional ratio to a
@@ -376,6 +383,8 @@ preference** — a higher rate, or the source's own shape, is a legitimate choic
 one settings write away (`GET|POST stt_feed`, eight fixed rates). A session that has a quality reason to raise it
 says so and raises it; a session that has no stated preference leaves it alone. The diar lane is not covered by
 this setting at all: it is 16 kHz mono always, whatever the Settings carry.
+
+**The origin door is a security setting, so the operator declares it and nothing else opens it.** By default the lane answers only the origin it is already answering: a request that carries an `Origin` other than the address it was addressed to is refused at the API prefix (`CHANGELOG.md` T-931). `allowed_origins` widens that with named authorities, or `*` for every page. The shape is the harness's own, read at `dsh-client-connection/src/api-request-trust.ts` rather than invented here, and the whole reading is recorded in `docs/FACTS.md` so the next session does not repeat it. Three consequences follow from the kind of setting it is: an entry that is not a bare authority in canonical form **refuses the whole list** and is named verbatim in the boot audit, because a half-applied allow-list is a door nobody intended; a port-less entry answers that host on any port, and an entry that names a port answers that authority only; and the policy is **read** (`GET origin_policy`) and never written — a page must not get to widen the boundary that decides whether the page may ask. Two things it is **not**, stated because both get assumed: it is not authentication (a caller that sends no `Origin` is not gated at all), and it is not a Host fence — this lane has never had one, and that gap stays open on `TODOS.md` part one item 126. Whether a browser can reach this host **at all** is not this plugin's knob either: it is the webserver's own `host` Config, where a loopback literal keeps the server on this machine and any other literal serves that network (`docs/FACTS.md`, the same section).
 
 One knob is not a Config field: the per-machine job cap. It is a persisted Settings switch
 (`limit_one_per_host`) overridable by `DEEPAMP_MAX_JOBS_PER_HOST` (1 … 8), and the environment
@@ -391,10 +400,10 @@ new one, for a dated transition, and the boot audit names which key actually ans
 
 1. The plugin store under `store_dir`: rendered audio, transcriptions, voices, the state file. The default
    is `<home>/.dsh/deepamp-audio`. It was `<home>/.dsh/audio-play` until 2026-11-07, when the operator
-   ruled the conversion ("we need a full conversion of the store" — to the store root named at the
-   workspace root, `../AGENTS.md`, which is where this machine's path is written — then
+   ruled the conversion ("we need a full conversion of the store" — to the store root named in
+   `LOCALHOSTS.md`, which is where this machine's path is written — then
    "yes, i would like the final change") — the ruling of 2026-11-05 that kept the store named with the old
-   word was reversed by that word, and the analysis that led to it is on `../TODOS.md` WM-31 item 19. The
+   word was reversed by that word; the analysis that led to it was never carried into this package, so the ruling and its date are the record. The
    move was a rename of the directory plus a rewrite of the paths the state file carries (298 literals);
    nothing was copied and nothing was deleted. A store root is a **data location**, not a package name: it
    is resolved at boot (environment, then Config, then this default) and a Config line must give an
@@ -438,8 +447,8 @@ new one, for a dated transition, and the boot audit names which key actually ans
     the package, git never tracks it, and it carries the machine names, this machine's paths, the account
     handle and the ids. A repository document carries the **role word** ("the primary slot", "a CPU node") and
     a pointer to that file, and where a path must be named it is named in its general form
-    (`<home>/.dsh/deepamp-audio`). The workspace-level form of the same rule is `../AGENTS.md`; the ruling and
-    the facts moved out are `../TODOS.md` WM-53; the pass over the records written before the rule is
+    (`<home>/.dsh/deepamp-audio`). This section **is** the rule — there is no wider guide that states it, and the
+    facts the rule moved out of the tracked tree are in `LOCALHOSTS.md`; the pass over the records written before the rule is
     `TODOS.md` part one item 38.
 
 ## 9. Tests
@@ -471,7 +480,8 @@ is started, and no test writes into a real store. Every suite resolves the file 
 
 | Where | What lives there | Is it authority for |
 |---|---|---|
-| `../AGENTS.md` | workspace rules, the operator's machine preferences | what a session must do anywhere in the tree, which box is kept off the lane |
+| *(beside the repository, not in it)* — a project index | which projects sit next to this one, where each lives, and where that project’s own guide and tracker are | nothing inside this package. It is not a guide, and it never carries a DEEPAMP rule, measurement or open item |
+| *(beside the repository, not in it)* — the local-harness fact sheet | how this machine’s harness is installed and mounted: the profile, the link-installed bundles, the restart mechanics, the instruction-file discovery rule | nothing inside this package. Harness state is **read** (`plugin_manager`, the inspect providers), never carried — and a file about the harness is not a guide |
 | `README.md` | the plugin and its usage: what it is, the three doors into it, where each document lives. Its superseded form is **not** carried in the package; the dated card in `CHANGELOG.md` is the record of that change | what a person or a git host sees first. It carries no coding quick start (operator ruling 2026-11-08) and no explanation of its own pictures (operator ruling 2026-11-11). **It is the operator-s file: a session proposes a change to it and the operator verifies it before it is written** (operator ruling 2026-11-26, `TODOS.md` part one item 115) |
 | this file | the rules above | how to act inside this plugin |
 | `CHANGELOG.md` | completed cards, newest first | what changed and what was measured, as history |
@@ -483,12 +493,11 @@ is started, and no test writes into a real store. Every suite resolves the file 
 | `docs/PROMPT_DOC_UPDATE.md` | the standing instructions for a document pass | how to update README and the section guides, what a screenshot must show, how the shot files are named, the tone |
 | `docs/PROMPT_CODING.md` | the doorway for a coding pass: the commands, what a green run does and does not say, what a change needs to go live, the read order | where a session that is here to change the code starts. It is a pointer file: the rules it points at are in this file, and this file stays the authority. Added 2026-11-08 at the operator's ruling that the landing page carries usage, not a coding quick start |
 | `docs/PROMPT_FIRST_SETUP.md` | the doorway for a first setup: what to read before anything is dispatched, the three test creations and the lengths they are asked for, how a model is chosen for each, and the local-engine routine with what it needs and where it stops | where a session that is setting this plugin up for the first time starts. Added 2026-11-14 at the operator's word on `TODOS.md` item 24 — the starter presets stay as they are and become instructions for an installing agent, and this file is where those instructions live |
-| `TODOS.md` (this package) | the plugin's open work: part one the open-cards index (one line each), part two the version-targets section moved here whole from `../TODOS.md`. **Named in this package’s `.gitignore`, like `LOCALHOSTS.md`: it is the local half of the package, so a clone, a tag and a published package carry no open-work index** | what is open on this plugin, and the only place a version target is written |
+| `TODOS.md` (this package) | the plugin’s open work: part one the open-cards index (one line each), part two the version-targets section, moved here whole in 2026-11-12 from a tracker that is now retired and read by nothing in this package. **Named in this package’s `.gitignore`, like `LOCALHOSTS.md`: it is the local half of the package, so a clone, a tag and a published package carry no open-work index** | what is open on this plugin, and the only place a version target is written |
 | `examples/` | one checked-in multi-voice batch document and the guide that says how to use a sample and what a sample may not carry | what a batch document looks like to a session that has never built one. It is not a test input and not a fixture: no suite reads it, and a fixture belongs under `tests/fixture/` |
-| `../TODOS.md` | open work as WM cards; its version-targets section is now a four-line pointer here | the operator's rulings in date order, and the cross-project cards |
 | `scratch/` | this package's logs, pre-change copies, dumps | nothing. Temp state |
 
-The layout, the naming rules and the tone rules were ruled by the operator on 2026-11-06 (WM-33) and are written
+The layout, the naming rules and the tone rules were ruled by the operator on 2026-11-06 and are written
 in `docs/PROMPT_DOC_UPDATE.md`. **The screenshot round was RUN 2026-11-10** against `0.1.0`: `docs/screenshots/v0.1.0/`
 holds one shot per panel section plus the player-window hero, named by the rule in that prompt file, with
 `manifest.json` naming where each frame came from, and README carries the hero and the section index. Working frames
@@ -500,8 +509,8 @@ under the layout re-ruled that day (`CHANGELOG.md` T-858, T-859, T-861).
 
 1. Prefer-primary is a re-sort inside the free group, never a tier above it. Both alternatives were
    measured and rejected, and the assertion counts that proved it are stated in `docs/FACTS.md`. The archive
-   those lines pointed at, `artifacts/t228_prefer_primary_20261008/`, was never carried into this package and
-   lives in the source tree at `../audio-play-cordis/artifacts/` (checked 2026-11-12).
+   those lines pointed at, `artifacts/t228_prefer_primary_20261008/`, was never carried into this package, and the old
+   source tree it sat in is not on this machine (checked again 2026-11-27).
 2. A capability bar that refuses from known capability, overrides with `force:true`, and stays permissive
    on unknown.
 3. The endpoint brake pauses the endpoint a failing row ran on; the lane pauses only when no endpoint is

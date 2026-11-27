@@ -7,8 +7,8 @@ below. A document that changes because the thing it describes did not change is 
 
 ## 1. Before touching anything
 
-1. Copy every file you are about to change into `../scratch/` first: `<file>.bak_<YYYYMMDD>_pre_doc_update`.
-2. Read `../README.md`, the `DETAILS_*.md` you are about to touch, and the newest card in `../CHANGELOG.md`.
+1. Copy every file you are about to change into `scratch/` first: `<file>.bak_<YYYYMMDD>_pre_doc_update`.
+2. Read `README.md`, the `DETAILS_*.md` you are about to touch, and the newest card in `CHANGELOG.md`.
    Do not write into a document you have not read in this session. If the pass touches what a first setup does — a
    starter preset, a length asked for on a first run, how a model is chosen for a test creation — read
    `PROMPT_FIRST_SETUP.md` too: it is the procedure an installing agent follows, and it is a document this pass can
@@ -25,7 +25,7 @@ below. A document that changes because the thing it describes did not change is 
 ## 2. The screenshot round
 
 1. `screenshots/` holds only images a document uses. The working output of playwright-cli goes to
-   `../scratch/shots_<YYYYMMDD>/`; a shot is copied into `screenshots/` only after it has been chosen for a
+   `scratch/shots_<YYYYMMDD>/`; a shot is copied into `screenshots/` only after it has been chosen for a
    document. This directory is not a debugging dump.
 2. A shot shows the panel doing its job: a real take playing, a visualizer actually rendering, a real voice in
    the registry, an endpoint row that has a model loaded, a transcript arriving. Never a synthetic string, never
@@ -42,7 +42,7 @@ below. A document that changes because the thing it describes did not change is 
    different visualizer or clock faces". So: the player window in these frames is playing, not idle; the model select
    and the voice select do not carry the same pair in every frame; and the display block is shown in more than one
    visualizer mode and in more than one clock face — the lists of both are the mode label table and `CLOCK_MODES681`
-   in `lib/client.js`, and they are not copied into this file. Tracked as `../TODOS.md` items 13(b) and 13(c),
+   in `lib/client.js`, and they are not copied into this file. Tracked as `TODOS.md` part one items 13(b) and 13(c),
    target v0.1.1, card `CHANGELOG.md` T-860.
 3. Each `DETAILS_<SECTION>.md` carries one full-resolution screenshot of that section, and a second frame only when
    that section opens a window and the operator asks for that window on its own. Not a gallery. The second case was
@@ -67,7 +67,7 @@ below. A document that changes because the thing it describes did not change is 
 ## 3. Names, and what a new version does
 
 1. Path shape: `screenshots/v<version>/<section>__<state>__<width>x<height>.png`. `<version>` is read from
-   `../package.json`, never from memory.
+   `package.json`, never from memory.
 2. Hero shape: `screenshots/v<version>/hero__<state>__<width>x<height>.png`.
 3. `<section>` is the stem of the DETAILS file: `tts_music_sfx`, `stt`, `voices`, `endpoints`, `settings`,
    `logs`, `models`, `playlist`, `autoplay`, `advanced`, `ttsd`. A frame of a window that section opens names the
@@ -121,7 +121,7 @@ below. A document that changes because the thing it describes did not change is 
 6. Features, each carrying one small real example: a request, a tool call, or a panel action. Short enough to
    read in ten seconds, real enough to run.
 7. Section index: one screenshot per section, each linked to its `DETAILS_*.md`.
-8. Config: a pointer to the Config table in `../AGENTS.md`. Never a second copy of that table.
+8. Config: a pointer to the Config table in `AGENTS.md`. Never a second copy of that table.
 9. Status and known limits, stated plainly. Then the closing block, in this order: **disclaimer** (no warranty, no
    support promise, what this is not); **how it was made**, in the operator's own words, verbatim: **"fully vibed - no
    dumb ape touched the code"**, stated as what it is and not as a boast or a hedge; **thanks** — the engine and its
@@ -159,19 +159,19 @@ A pointer to the guide that carries a related subject goes inside the line that 
 
 1. Grep every image path you wrote and confirm the file exists at that exact name.
 2. Confirm no document links a path that no longer exists, and no file in `docs/` sits unlinked from the README
-   and from the document map in `../AGENTS.md`.
+   and from the document map in `AGENTS.md`.
 3. Confirm the line limits hold: README stays short, `AGENTS.md` stays inside 300 soft / 400 hard, a changelog
    card stays around twelve lines.
 4. Confirm no emoji, no banned adjective, no model named as the model to use, no address or port, no fleet state
    in a guide (WM-23, WM-27).
 5. Run `npm test` when the pass touched a file a suite reads with a real read — `docs/MODELS_TABLE.md`,
-   `docs/MODEL_PROVENANCE.md`, the fixture pages under `../tests/fixture/`, or any code. A prose-only change does not
-   need it; say which you ran and which you skipped, and keep the log in `../scratch/`.
-6. Record the pass in `../../TODOS.md` under the open WM card. A card in `../CHANGELOG.md` is asked for when the
+   `docs/MODEL_PROVENANCE.md`, the fixture pages under `tests/fixture/`, or any code. A prose-only change does not
+   need it; say which you ran and which you skipped, and keep the log in `scratch/`.
+6. Record the pass in `TODOS.md` part one, under the open card. A card in `CHANGELOG.md` is asked for when the
    pass made a decision, not when it retyped a paragraph.
 
 ## 8. What this file does not decide
 
 Whether the three model records get merged into one; the `.gitignore` payload and the contents of the first
 commit; whether a version tag is cut; the Windows and other-OS text; the value of the panel's info link. Those
-are the operator's calls and they live in `../../TODOS.md`.
+are the operator's calls and they live in `TODOS.md`.

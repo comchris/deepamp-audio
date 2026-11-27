@@ -35,7 +35,7 @@
     # client row belongs here. A second same-name row would load lib/index.js twice
     # and throw on duplicate webServer route registration (two ids => two host entries).
     - id: deepamp-host
-      name: '@mepaw/deepamp-audio'
+      name: '@comchris/deepamp-audio'
 
     # T-715: the DEEPAMP tools are a SEPARATE component row, not more code inside the host row and
     # not Config fields on it. Composition is what decides who has the tools — the same way the
@@ -55,4 +55,4 @@
     # It waits on `audioPlay`, the service the host row provides, so it registers nothing until that
     # row is live and parks quietly when it is not.
     - id: tool-deepamp-audio
-      name: '@mepaw/deepamp-audio/tools'
+      name: '@comchris/deepamp-audio/tools'

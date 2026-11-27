@@ -179,6 +179,7 @@ not running is fixed: start the unit, then release the slot.
 | `takes_limit` | GET or POST | What the store does as the takes grow: `off`, `limit`, or `auto_delete` with a byte cap. |
 | `stt_feed` | GET or POST | How audio is fed to a transcription (`resample` or the source's own shape), the rate, and the channel rule. A speaker chain is fed at its own fixed shape whatever this says. |
 | `limit_one_per_host` | GET or POST `{"enabled":…}` | The soft cap on how many jobs one machine may hold at once. An environment override outranks the switch. |
+| `origin_policy` | GET only | **A security setting, and it has no write half**: what the lane admits beyond its own origin — the declared `allowed_origins` list, whether it carries `*`, what was refused at boot, and the listener facts read from the carrier. The door is opened in the patch file, never by a page. |
 | `generation_ceiling`, `voice_ceiling` | GET or POST | The two ceilings themselves, in section 3. |
 | `disable_generation_limits` | GET or POST `{"enabled":…}` | Turn the generation ceilings off. Turning them off is a deliberate act, not a tidy-up. |
 | `set_save_path` | POST only `{fn, dir}` | Point an output lane at another directory. |
